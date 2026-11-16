@@ -9,6 +9,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ### Disk use
 
+- A daemon-wide disk budget, closing security review L1. `[storage] min_free_bytes`
+  (256 MiB by default) keeps free space on the data volume, and `max_disk_bytes` (off by
+  default) bounds every stream's segments together. Measured every second, also with
+  background maintenance off. Once either is reached every batch is refused with
+  `STORAGE_UNAVAILABLE` and a one-second retry delay; batches are admitted again as soon
+  as there is room, with no restart. Nothing is deleted. Free space is read through
+  `fs4`, pure Rust ([storage](../reference/storage.md#disk-budget)).
+- **Behaviour change:** a daemon on a volume with 256 MiB or less free now refuses
+  batches. Set `min_free_bytes = 0` for the old behaviour.
 - A stream's size limit (`RetentionPolicy.max_bytes`) is applied each time the stream
   seals a segment, not only on the `retention_interval_ms` schedule, an hour by
   default. A busy stream now exceeds its limit by about one segment, not by an hour of

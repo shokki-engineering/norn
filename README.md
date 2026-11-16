@@ -160,6 +160,7 @@ behind them are in [how Norn works](docs/guides/concepts.md).
 - **Benchmark matrix**: Built. A quick profile runs in CI; the full run has not been made ([performance](docs/performance.md#benchmark-matrix))
 - **Pattern detection, GGML-accelerated**: Planned. Opt-in, outside the engine; scope still to be decided
 - **Further device-protocol adapters**: Planned. As clients of the public API, outside this repository
+- **Disk budget**: Done. `min_free_bytes` and `max_disk_bytes` refuse batches before the disk fills, and admit again when room returns ([storage](docs/reference/storage.md#disk-budget))
 - **Metrics export**: Not built
 
 ## Installation
@@ -235,9 +236,9 @@ What is built, measured and planned, stage by stage, is in the
   ([operations](docs/guides/operations.md#backup-and-restore)).
 - **Crash tests cover process death** (`kill -9`), not power loss. Every performance
   figure is from macOS; Linux and Windows are tested in CI, not measured.
-- **No disk budget.** A client can write until the disk is full unless a retention
-  policy is set ([review](docs/security/review-2026-11.md), L1). A full disk loses
-  nothing acknowledged, but the stream refuses batches until the daemon restarts
+- **The disk budget is measured every second.** Writes within that second can pass
+  `max_disk_bytes`; `min_free_bytes` is the headroom for them. If the disk does fill,
+  nothing acknowledged is lost, but the stream refuses batches until the daemon restarts
   ([troubleshooting](docs/guides/troubleshooting.md#no-space-left-on-device-then-this-streams-storage-failed)).
 
 ## Security

@@ -66,6 +66,8 @@ max_segment_open_time_ms = 3600000  # 1.0.0-rc.1: wall-clock time a segment may 
 group_commit_interval_ms = 5   # the longest a DURABLE batch waits to share an fsync
 max_chunk_age_ms = 60000       # the longest a sample waits to be encoded into a chunk
 durable_acks = true            # false: no fsync, and DURABLE is refused, not weakened
+max_disk_bytes = 0             # all segments together; 0: no limit
+min_free_bytes = 268435456     # free space the data volume keeps; 0: no floor
 encryption = "off"             # "on" needs key_file or key_env (below)
 ```
 
@@ -89,6 +91,16 @@ and on a clean stop. The open-time limit is what lets a quiet or short-lived str
 reach sealed segments, which compaction, retention and the clean-start marker work on.
 Zero is refused. Maintenance checks every quarter of the value, kept between 10 ms and
 60 s, and does so even with `[maintenance] background = false`.
+
+**Disk budget.** `max_disk_bytes` bounds what every stream's segments take together,
+and `min_free_bytes` the free space left on the data directory's volume, whoever uses
+the rest; zero turns either off. Maintenance measures both every second, with
+`[maintenance] background = false` too. Once either is reached, every batch is refused
+with `STORAGE_UNAVAILABLE`, a retry delay of one second and a message naming the
+limit, and admitted again as soon as a measurement finds room; nothing is deleted.
+Within an eighth of a limit the daemon logs a warning. Journals, the index and the
+metadata log are not counted in `max_disk_bytes`; `min_free_bytes` covers them.
+The default floor, 256 MiB, was picked, not measured.
 
 Half of `ipc_bytes` is set aside for HTTP/2 flow-control windows, an equal share
 per client; the other half pays for messages being decoded ([architecture.md](../reference/architecture.md)).

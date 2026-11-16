@@ -608,6 +608,31 @@ run either; only a client's `ApplyStreamRetention` does. The worker measures the
 on its clock after every wake-up, so frequent seals or jobs never hold back sealing by
 age, compaction or the retention schedule.
 
+## Disk budget
+
+Retention is per stream and optional, so on its own nothing stops a daemon filling
+its disk. Two `[storage]` settings bound the whole daemon:
+
+| Setting | Measures | Default |
+| --- | --- | --- |
+| `max_disk_bytes` | every stream's `stored_bytes`, summed | 0, no limit |
+| `min_free_bytes` | free space on the data directory's volume, from the OS | 256 MiB |
+
+The maintenance worker measures every second on the blocking pool, whether or not
+background passes run, and leaves the verdict where admission reads it: one atomic
+flag per batch, and a message only when refusing. Admission therefore never waits on
+a disk. A spent budget refuses every batch, before any stream's own checks, with
+`BACKPRESSURE_REASON_STORAGE_UNAVAILABLE` and a one-second retry delay. Nothing is
+deleted: a stream's retention policy is what makes room by itself, and an operator
+the rest. The next measurement that finds room admits batches again, with no restart.
+
+Writes between two measurements can overshoot a limit; `min_free_bytes` is the
+headroom that absorbs them, so that ingest stops before the OS returns `ENOSPC`, which
+fails a stream until restart ([troubleshooting](../guides/troubleshooting.md)). Free
+space comes from `fs4::available_space`, which is pure Rust (`rustix` on Unix,
+`windows-sys` on Windows); if the OS cannot say, the floor is not enforced and a
+warning is logged.
+
 ## Clean shutdown
 
 Reading every chunk at every start costs time proportional to all stored data. A
