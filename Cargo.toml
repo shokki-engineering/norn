@@ -38,7 +38,7 @@ serde_json = "1"
 # candidates (docs/reference/storage.md "Block compression"). Default features off: no SIMD
 # kernels beyond the scalar path, no dictionary builder, no legacy frames, no
 # xxhash (storage checksums chunks itself), so no transitive crate.
-structured-zstd = { version = "=0.2.6", default-features = false, features = ["std"] }
+structured-zstd = { version = "=0.3.0", default-features = false, features = ["std"] }
 
 # --- Encryption at rest (norn-storage only); docs/reference/storage.md "Encryption".
 # RustCrypto, pure Rust: no ring, no aws-lc, no C (SPEC §1). xtask/src/crypto.rs
