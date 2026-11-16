@@ -626,9 +626,15 @@ a disk. A spent budget refuses every batch, before any stream's own checks, with
 deleted: a stream's retention policy is what makes room by itself, and an operator
 the rest. The next measurement that finds room admits batches again, with no restart.
 
-Writes between two measurements can overshoot a limit; `min_free_bytes` is the
-headroom that absorbs them, so that ingest stops before the OS returns `ENOSPC`, which
-fails a stream until restart ([troubleshooting](../guides/troubleshooting.md)). Free
+Between two measurements admission counts what it admits against the room the last
+one left above `min_free_bytes`, so Norn's own writes stop at the floor however fast
+they come, before the OS returns `ENOSPC`, which fails a stream until restart
+([troubleshooting](../guides/troubleshooting.md)). A batch is counted at its
+in-memory size, more than the journal writes for it, so this errs towards refusing
+early, and the count restarts at every measurement. Only the floor is counted:
+`max_disk_bytes` bounds compressed bytes, a fraction of that, so it is checked by the
+measurements alone and can be passed by a second's writes, as the floor can by
+another program's. Free
 space comes from `fs4::available_space`, which is pure Rust (`rustix` on Unix,
 `windows-sys` on Windows); if the OS cannot say, the floor is not enforced and a
 warning is logged.

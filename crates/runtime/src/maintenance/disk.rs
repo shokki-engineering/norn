@@ -64,6 +64,18 @@ pub(super) fn judge(used: u64, free: Option<u64>, max: u64, min: u64) -> Level {
     level
 }
 
+/// The bytes that may still be admitted before the free-space floor, `free - min`,
+/// with that setting's name; `u64::MAX` when the floor is off or free space is
+/// unknown. Only the floor is counted between measurements: the journal writes
+/// about what admission counts, while `max_disk_bytes` bounds compressed segment
+/// bytes, a fraction of it, which the measurements alone keep to within a second.
+pub(super) fn room(free: Option<u64>, min: u64) -> (u64, &'static str) {
+    match free.filter(|_| min > 0) {
+        Some(free) => (free.saturating_sub(min), "min_free_bytes"),
+        None => (u64::MAX, ""),
+    }
+}
+
 impl Maintenance {
     /// Measures the disk budget on the blocking pool: asking the OS for free
     /// space is a system call that a slow volume can hold up.
@@ -95,9 +107,10 @@ impl Maintenance {
         };
         let level = judge(used, free, max, min);
         let was = self.disk_level.swap(level.rank(), Ordering::AcqRel);
+        let left = room(free, min);
         match &level {
-            Level::Spent(why) => self.ingest.set_disk(Some(why.clone())),
-            _ => self.ingest.set_disk(None),
+            Level::Spent(why) => self.ingest.set_disk(Some(why.clone()), left),
+            _ => self.ingest.set_disk(None, left),
         }
         if was == level.rank() {
             return;
@@ -112,7 +125,15 @@ impl Maintenance {
 
 #[cfg(test)]
 mod tests {
-    use super::{Level, judge};
+    use super::{Level, judge, room};
+
+    #[test]
+    fn room_is_what_the_floor_leaves_and_unbounded_without_one() {
+        assert_eq!(room(Some(1000), 400), (600, "min_free_bytes"));
+        assert_eq!(room(Some(10), 400).0, 0, "already past the floor");
+        assert_eq!(room(Some(1000), 0).0, u64::MAX, "no floor");
+        assert_eq!(room(None, 400).0, u64::MAX, "free space unknown");
+    }
 
     #[test]
     fn a_limit_of_zero_is_off() {

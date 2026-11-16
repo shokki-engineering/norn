@@ -236,8 +236,9 @@ What is built, measured and planned, stage by stage, is in the
   ([operations](docs/guides/operations.md#backup-and-restore)).
 - **Crash tests cover process death** (`kill -9`), not power loss. Every performance
   figure is from macOS; Linux and Windows are tested in CI, not measured.
-- **The disk budget is measured every second.** Writes within that second can pass
-  `max_disk_bytes`; `min_free_bytes` is the headroom for them. If the disk does fill,
+- **The disk budget is measured every second.** Norn's own writes stop at
+  `min_free_bytes` exactly, being counted between measurements; another program's
+  writes, and `max_disk_bytes`, are caught at the next measurement. If the disk does fill,
   nothing acknowledged is lost, but the stream refuses batches until the daemon restarts
   ([troubleshooting](docs/guides/troubleshooting.md#no-space-left-on-device-then-this-streams-storage-failed)).
 

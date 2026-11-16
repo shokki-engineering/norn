@@ -158,9 +158,11 @@ async fn a_full_disk_loses_no_acknowledged_sample_and_ingest_resumes_once_space_
 async fn the_free_space_floor_refuses_before_the_disk_fills_and_lifts_without_a_restart() {
     let root = PathBuf::from(std::env::var_os("NORN_SMALL_FS").expect("NORN_SMALL_FS"));
     let data = root.join(format!("floor-{}", std::process::id()));
+    // The pad first: the floor counts Norn's own writes between measurements,
+    // while another program's, such as this pad, wait for the next measurement.
+    let pad = pad(&root);
     let d = start(floor(HEADROOM / 2), data).await;
     seed(&d.channel, &[("t", ValueType::Double)]).await;
-    let pad = pad(&root);
     let mut why = None;
     for id in 0..2_000 {
         why = refusal(&d, id).await;
