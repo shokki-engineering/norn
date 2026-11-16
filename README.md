@@ -21,7 +21,7 @@ It stores the history of sensor data and device telemetry, answers questions abo
 <p>
 <a href="#installation"><img alt="Platforms: Linux, macOS, Windows" src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square"></a>
 <a href="https://grpc.io"><img alt="gRPC: always on" src="https://img.shields.io/badge/gRPC-always%20on-244C5A?style=flat-square"></a>
-<a href="protobuf"><img alt="Protocol crate 1.0.0-rc.2" src="https://img.shields.io/badge/protocol-1.0.0--rc.2-244C5A?style=flat-square"></a>
+<a href="protobuf"><img alt="Protocol crate 1.0.0-rc.3" src="https://img.shields.io/badge/protocol-1.0.0--rc.3-244C5A?style=flat-square"></a>
 <a href="https://modelcontextprotocol.io"><img alt="MCP: optional, built in" src="https://img.shields.io/badge/MCP-optional%2C%20built%20in-244C5A?style=flat-square&logo=modelcontextprotocol&logoColor=white"></a>
 <a href="docs/reference/architecture.md#no-c"><img alt="Engine: no C" src="https://img.shields.io/badge/engine-no%20C-50ABF1?style=flat-square"></a>
 </p>
@@ -43,12 +43,12 @@ checksummed chunks, indexes them by time, and answers range queries, aggregates,
 state of every signal at an instant, and deterministic replays. It knows entities,
 signals and streams, and never what they mean.
 
-**Release: `norn v1.0.0-rc.2`**, the second release candidate for 1.0. The daemon,
+**Release: `norn v1.0.0-rc.3`**, the third release candidate for 1.0. The daemon,
 `nornctl`, the interchange adapters, the MCP server and the protocol crate are
-versioned together at `1.0.0-rc.2`, and the wire protocol negotiates version 1.8. This
-candidate adds backup, restore and migration, a compatibility policy, fuzzing, the
-benchmark matrix, the `norn-sink` device adapter kit, the security review's fixes and
-opt-in, **experimental** encryption at rest. See the
+versioned together at `1.0.0-rc.3`, and the wire protocol negotiates version 1.9. This
+candidate adds a daemon-wide disk budget, remote gRPC over TLS with a bearer token
+(`[remote]`, `nornctl --remote`), and hard per-stream quotas. Setting a quota moves the
+metadata log to a version 1.0.0-rc.2 does not open. See the
 [changelog](docs/project/changelog.md) and [known issues](#status-and-known-issues).
 
 ## Contents
@@ -94,7 +94,7 @@ opt-in, **experimental** encryption at rest. See the
 
 **Project**
 
-- [Changelog](docs/project/changelog.md): every release, v0.1.0 to v1.0.0-rc.2
+- [Changelog](docs/project/changelog.md): every release, v0.1.0 to v1.0.0-rc.3
 - [Performance](docs/performance.md): the benchmark matrix, every measurement and how it was made
 - [Specification](docs/project/spec.md): the binding brief
 - [Plan](docs/project/plan.md): how the work is split, its status and the [roadmap](docs/project/plan.md#roadmap)
@@ -164,8 +164,9 @@ behind them are in [how Norn works](docs/guides/concepts.md).
 - **Benchmark matrix**: Built. A quick profile runs in CI; the full run has not been made ([performance](docs/performance.md#benchmark-matrix))
 - **Pattern detection, GGML-accelerated**: Planned. Opt-in, outside the engine; scope still to be decided
 - **Further device-protocol adapters**: Planned. As clients of the public API, outside this repository
-- **Disk budget**: Done. `min_free_bytes` and `max_disk_bytes` refuse batches before the disk fills, and admit again when room returns ([storage](docs/reference/storage.md#disk-budget))
-- **Remote gRPC over TLS, with a bearer token**: Done. `[remote]`, off by default; in release builds ([configuration](docs/guides/configuration.md#remote-grpc))
+- **Disk budget**: Done, in 1.0.0-rc.3. `min_free_bytes` and `max_disk_bytes` refuse batches before the disk fills, and admit again when room returns ([storage](docs/reference/storage.md#disk-budget))
+- **Remote gRPC over TLS, with a bearer token**: Done, in 1.0.0-rc.3. `[remote]`, off by default; in release builds ([configuration](docs/guides/configuration.md#remote-grpc))
+- **Hard per-stream quotas**: Done, in 1.0.0-rc.3. Refuse batches at a stream's quota, delete nothing ([operations](docs/guides/operations.md#quotas))
 - **Metrics export**: Not built
 
 ## Installation
@@ -190,7 +191,7 @@ no C toolchain:
 ```sh
 git clone https://github.com/shokki-engineering/norn.git
 cd norn
-git checkout v1.0.0-rc.2
+git checkout v1.0.0-rc.3
 cargo build --release --locked -p norn-server -p norn-cli
 ```
 
@@ -230,7 +231,7 @@ queries, aggregates, replay, verify, compaction, export and import, is in
 
 ## Status and known issues
 
-1.0.0-rc.2 is a release candidate: the owner field-tests it before tagging 1.0.0.
+1.0.0-rc.3 is a release candidate: the owner field-tests it before tagging 1.0.0.
 What is built, measured and planned, stage by stage, is in the
 [roadmap](docs/project/plan.md#roadmap).
 

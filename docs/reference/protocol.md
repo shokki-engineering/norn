@@ -507,8 +507,8 @@ version, which is the only place wire-incompatible changes may happen. `minor`
 counts compatible additions within a major: methods, fields, enum values,
 error reasons, capabilities. `buf breaking` enforces that a minor never breaks
 the wire or JSON form. The published v0.1.0 release speaks 1.6; 1.0.0-rc.1 speaks 1.7,
-1.0.0-rc.2 speaks 1.8, and this tree 1.9 (`norn_protocol::PROTOCOL_VERSION`).
-The protocol crate is versioned `1.0.0-rc.2` with the rest of the workspace;
+1.0.0-rc.2 speaks 1.8, and 1.0.0-rc.3 1.9 (`norn_protocol::PROTOCOL_VERSION`).
+The protocol crate is versioned `1.0.0-rc.3` with the rest of the workspace;
 this release identifier is separate from the integer major/minor wire version.
 1.1 added error reasons, `Server.recovery` and
 `Server.index` to 1.0. 1.2 added `StreamStats.buffered_sample_count` and

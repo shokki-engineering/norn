@@ -114,7 +114,7 @@ agreed_protocol: 1.8
 Unlike `status`, this negotiates, so an incompatible daemon fails here with its
 reason.
 
-In 1.0.0-rc.1, `client_protocol` was 1.7; from 1.0.0-rc.2 it is 1.8. The agreed version is
+In 1.0.0-rc.1, `client_protocol` was 1.7; in 1.0.0-rc.2 it was 1.8; from 1.0.0-rc.3 it is 1.9. The agreed version is
 the lower minor: 1.7 against a 1.0.0-rc.1 daemon, 1.6 against a 0.1.0 one. A 1.0.0-rc.1
 daemon with shared memory enabled adds `CAPABILITY_SHARED_MEMORY` to `status`'s
 capabilities.

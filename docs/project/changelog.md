@@ -5,7 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Changelog
 
-## Unreleased
+## 1.0.0-rc.3
+
+Release title: `norn v1.0.0-rc.3`. All workspace crates, including `norn-protocol`,
+are versioned `1.0.0-rc.3`; wire negotiation is at protocol 1.9. Client and daemon agree
+the lower minor, so 1.8, 1.7 and 1.6 clients and daemons still connect. Setting a stream
+quota moves the metadata log to version 3, which 1.0.0-rc.2 does not open; a database
+that never sets one stays readable by it.
 
 ### Stream quotas (protocol 1.9)
 
