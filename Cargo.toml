@@ -96,7 +96,7 @@ windows-sys = { version = "0.61", default-features = false }
 # The data volume's free space, for the disk budget (norn-runtime); std has no
 # such call, and libc's or windows-sys's would need `unsafe`. Pure Rust: rustix
 # on Unix, windows-sys (already in tokio's graph) on Windows.
-fs4 = { version = "0.13", default-features = false, features = ["sync"] }
+fs4 = { version = "1.1", default-features = false, features = ["sync"] }
 
 # --- The shared-memory data plane (norn-shared-memory); docs/reference/shared-memory.md.
 # iceoryx2: the owner's choice (2026-11-03) over a hand-written ring. Pinned
