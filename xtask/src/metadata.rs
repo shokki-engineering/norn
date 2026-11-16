@@ -75,10 +75,32 @@ pub fn load(root: &Path) -> Result<Graph, String> {
 ///
 /// As [`load`]; also when cargo does not know a triple.
 pub fn load_for(root: &Path, platforms: &[&str]) -> Result<Graph, String> {
+    run(root, platforms, &[])
+}
+
+/// As [`load_for`], with `features` (`crate/feature`) on as well as the
+/// defaults: what a release links, since release builds turn on features a
+/// plain build leaves off. A superset of the default graph.
+///
+/// # Errors
+///
+/// As [`load_for`].
+pub fn load_shipped(root: &Path, platforms: &[&str], features: &[&str]) -> Result<Graph, String> {
+    let joined = features.join(",");
+    let extra: &[&str] = if features.is_empty() {
+        &[]
+    } else {
+        &["--features", &joined]
+    };
+    run(root, platforms, extra)
+}
+
+fn run(root: &Path, platforms: &[&str], extra: &[&str]) -> Result<Graph, String> {
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
     let filters = platforms.iter().flat_map(|p| ["--filter-platform", p]);
     let out = Command::new(cargo)
         .args(["metadata", "--format-version", "1"])
+        .args(extra)
         .args(filters)
         .current_dir(root)
         .output()

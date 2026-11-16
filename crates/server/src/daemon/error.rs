@@ -36,6 +36,9 @@ pub enum DaemonError {
     RecoveryPanicked,
     /// Recovery finished without opening the temporal index: a bug.
     IndexMissing,
+    /// `[remote]`'s token file is missing, unreadable, readable by others, or
+    /// too short to be a secret. Nothing was served.
+    RemoteToken(String),
 }
 
 impl fmt::Display for DaemonError {
@@ -51,6 +54,7 @@ impl fmt::Display for DaemonError {
             Self::Database(e) => write!(f, "{e}"),
             Self::RecoveryPanicked => f.write_str("recovery panicked"),
             Self::IndexMissing => f.write_str("recovery left no temporal index"),
+            Self::RemoteToken(why) => write!(f, "remote.token_file: {why}"),
         }
     }
 }
@@ -66,7 +70,7 @@ impl std::error::Error for DaemonError {
             Self::StoreVersion(e) => Some(e),
             Self::Storage(e) => Some(e),
             Self::Database(e) => Some(e),
-            Self::RecoveryPanicked | Self::IndexMissing => None,
+            Self::RecoveryPanicked | Self::IndexMissing | Self::RemoteToken(_) => None,
         }
     }
 }

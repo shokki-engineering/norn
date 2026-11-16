@@ -49,7 +49,7 @@ pub fn run(gate: &str, root: &Path) -> Result<Findings, String> {
         "docs" => Ok(docs::run(root, &metadata::load(root)?)),
         "arch" => Ok(arch::check(&metadata::load(root)?, arch::LAYERS)),
         "deps" => {
-            let graph = metadata::load_for(root, deps::PLATFORMS)?;
+            let graph = metadata::load_shipped(root, deps::PLATFORMS, deps::RELEASE_FEATURES)?;
             Ok(deps::check(&graph, deps::ALLOW_C))
         }
         other => Err(format!(

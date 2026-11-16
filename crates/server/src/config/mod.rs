@@ -14,6 +14,7 @@ mod error;
 mod file;
 mod log;
 mod mcp;
+mod remote;
 mod shared;
 
 use std::path::PathBuf;
@@ -31,6 +32,7 @@ pub use log::{LogConfig, LogFormat, LogLevel};
 pub use mcp::{McpConfig, McpTransport};
 /// The `[shared_memory]` settings, `norn-shared-memory`'s own type.
 pub use norn_shared_memory::Settings as SharedMemorySettings;
+pub use remote::{DEFAULT_REMOTE_CLIENTS, RemoteConfig};
 
 /// How long in-flight calls may finish after shutdown is requested, before
 /// their connections are aborted (norn-ipc's drain bound). Default 10 s.
@@ -52,6 +54,7 @@ pub struct DaemonConfig {
     pub(crate) mcp: McpConfig,
     pub(crate) shared_memory: Settings,
     pub(crate) keys: Option<KeySource>,
+    pub(crate) remote: Option<RemoteConfig>,
 }
 
 impl DaemonConfig {
@@ -116,6 +119,19 @@ impl DaemonConfig {
     #[must_use]
     pub fn mcp_settings(&self) -> &McpConfig {
         &self.mcp
+    }
+
+    /// Also serves gRPC to other machines, as `remote` says; `None` for none.
+    #[must_use]
+    pub fn remote(mut self, remote: Option<RemoteConfig>) -> Self {
+        self.remote = remote;
+        self
+    }
+
+    /// The `[remote]` settings, if remote gRPC is on.
+    #[must_use]
+    pub fn remote_settings(&self) -> Option<&RemoteConfig> {
+        self.remote.as_ref()
     }
 
     /// The engine configuration: memory budgets and limits.

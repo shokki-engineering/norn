@@ -62,8 +62,15 @@ prost-reflect = { workspace = true }
 # else: no shipped build enables it.
 [features]
 fuzzing = []
+# gRPC for other machines (`[remote]`), over TLS with a bearer token. Turns on
+# runtime-rs's `tls`, which brings rustls with ring (C and assembly), excused
+# beneath this crate only (xtask/src/runtime_rs.rs). Off in a plain build, so
+# that stays pure Rust; release builds turn it on (justfile, `release-build`).
+remote = ["tpp_grpc/tls"]
 
 [dev-dependencies]
+# The remote tests' client: tonic over TLS, trusting the test certificate.
+tonic = { workspace = true, features = ["tls-ring"] }
 # Tests read back what the daemon stored; a client never does this.
 norn-storage = { path = "../storage" }
 norn-core = { path = "../core" }

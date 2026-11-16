@@ -38,6 +38,8 @@ pub fn temp(tag: &str) -> PathBuf {
 
 pub struct Running {
     pub channel: Channel,
+    /// The `[remote]` listener's address, when one is configured.
+    pub remote: Option<std::net::SocketAddr>,
     pub cancel: CancellationToken,
     pub task: JoinHandle<Result<RunReport, DaemonError>>,
     pub data: PathBuf,
@@ -49,6 +51,7 @@ pub async fn start(config: DaemonConfig, data: PathBuf) -> Running {
         .await
         .unwrap();
     let endpoint = daemon.local_endpoint().clone();
+    let remote = daemon.remote_addr();
     let mut health = daemon.health();
     let cancel = CancellationToken::new();
     let task = tokio::spawn(daemon.run(cancel.clone()));
@@ -56,6 +59,7 @@ pub async fn start(config: DaemonConfig, data: PathBuf) -> Running {
     let channel = norn_ipc::connect(&endpoint).await.unwrap();
     Running {
         channel,
+        remote,
         cancel,
         task,
         data,

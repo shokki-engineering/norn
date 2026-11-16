@@ -10,10 +10,8 @@
 //! decoding, as layers around every service. Health is the daemon's own, which goes
 //! `NOT_SERVING` for the drain; reflection serves owner-only sockets and pipes.
 
-use std::sync::Arc;
 use std::time::Duration;
 
-use norn_core::Config;
 use norn_ipc::Endpoint;
 use norn_protocol::FILE_DESCRIPTOR_SET;
 use norn_protocol::admin::admin_service_server::AdminServiceServer;
@@ -29,7 +27,7 @@ use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 use tonic_health::pb::health_server::{Health, HealthServer};
 use tpp_grpc::options::{self, GrpcLimits, Options, Overflow, ServerEnvironment};
-use tpp_grpc::{BannerOutput, HybridServer, ListenAddr};
+use tpp_grpc::{BannerOutput, HybridServer};
 
 use super::DaemonError;
 use crate::admin::Admin;
@@ -61,7 +59,7 @@ const MAX_STREAMS_PER_CONNECTION: u32 = 16;
 const IDLE: Duration = Duration::from_secs(600);
 
 /// Slack past the drain bound before the server cuts off the rest.
-const STOP_SLACK: Duration = Duration::from_secs(2);
+pub(super) const STOP_SLACK: Duration = Duration::from_secs(2);
 
 /// What connects the server to the daemon's lifecycle.
 pub(super) struct Wiring {
@@ -86,6 +84,40 @@ pub(super) struct Registered<H: Health> {
     pub(super) operations: OperationsServer<OperationsService>,
 }
 
+impl<H: Health> Clone for Registered<H> {
+    fn clone(&self) -> Self {
+        Self {
+            health: self.health.clone(),
+            admin: self.admin.clone(),
+            entities: self.entities.clone(),
+            signals: self.signals.clone(),
+            streams: self.streams.clone(),
+            telemetry: self.telemetry.clone(),
+            queries: self.queries.clone(),
+            replays: self.replays.clone(),
+            states: self.states.clone(),
+            operations: self.operations.clone(),
+        }
+    }
+}
+
+impl<H: Health> Registered<H> {
+    /// Adds every service to `server`.
+    pub(super) fn register(self, server: HybridServer) -> HybridServer {
+        server
+            .with_service(self.health)
+            .with_service(self.admin)
+            .with_service(self.entities)
+            .with_service(self.signals)
+            .with_service(self.streams)
+            .with_service(self.telemetry)
+            .with_service(self.queries)
+            .with_service(self.replays)
+            .with_service(self.states)
+            .with_service(self.operations)
+    }
+}
+
 fn grpc_endpoint(endpoint: &Endpoint) -> options::Endpoint {
     match endpoint {
         Endpoint::Unix(path) => options::Endpoint::unix(path),
@@ -95,9 +127,10 @@ fn grpc_endpoint(endpoint: &Endpoint) -> options::Endpoint {
     }
 }
 
-fn limits(engine: &Config, drain: Duration, window: u32) -> GrpcLimits {
+/// A listener's limits: at most `clients` connections, each with `window`.
+pub(super) fn limits(clients: usize, drain: Duration, window: u32) -> GrpcLimits {
     GrpcLimits::default()
-        .max_connections(engine.limits().max_clients)
+        .max_connections(clients)
         .overflow(Overflow::Queue)
         .idle_timeout(IDLE)
         .drain_timeout(drain)
@@ -129,62 +162,17 @@ pub(super) fn build<H: Health>(
     let server = HybridServer::new(options)
         .with_banner(BannerOutput::Off)
         .with_reflection(FILE_DESCRIPTOR_SET)
-        .with_grpc_limits(limits(config.engine(), drain, window))
+        .with_grpc_limits(limits(config.engine().limits().max_clients, drain, window))
         .with_shutdown_timeout(drain.saturating_add(STOP_SLACK))
         .with_grpc_layer(OpeningLayer(wiring.open))
         .with_grpc_layer(VersionGateLayer)
-        .with_grpc_layer(meter)
-        .with_service(s.health)
-        .with_service(s.admin)
-        .with_service(s.entities)
-        .with_service(s.signals)
-        .with_service(s.streams)
-        .with_service(s.telemetry)
-        .with_service(s.queries)
-        .with_service(s.replays)
-        .with_service(s.states)
-        .with_service(s.operations)
-        .with_gateway(move |loopback| {
-            dial.publish(loopback);
-            NoRest
-        });
+        .with_grpc_layer(meter);
+    let server = s.register(server).with_gateway(move |loopback| {
+        dial.publish(loopback);
+        NoRest
+    });
     let server = mcp
         .into_iter()
         .fold(server, HybridServer::with_agent_service_dyn);
     super::reflection::register(server, &config.endpoint())
-}
-
-/// A started server. Dropped unstopped, it stops itself on a task, so a bound daemon
-/// dropped without running releases its endpoint. Correct from any task.
-pub(super) struct Bound(Option<Arc<HybridServer>>);
-
-impl Bound {
-    /// Starts `server`, returning it and the endpoint it actually bound.
-    pub(super) async fn start(
-        mut server: HybridServer,
-        wanted: &Endpoint,
-    ) -> Result<(Self, Endpoint), DaemonError> {
-        server.start().await.map_err(DaemonError::Server)?;
-        let bound = match server.grpc_listen_addr() {
-            Some(ListenAddr::Tcp(address)) => Endpoint::Tcp(address),
-            _ => wanted.clone(),
-        };
-        Ok((Self(Some(Arc::new(server))), bound))
-    }
-
-    /// Drains and stops.
-    pub(super) async fn stop(mut self) -> Result<(), tpp_grpc::Error> {
-        match self.0.take() {
-            Some(server) => server.stop().await,
-            None => Ok(()),
-        }
-    }
-}
-
-impl Drop for Bound {
-    fn drop(&mut self) {
-        if let (Some(server), Ok(handle)) = (self.0.take(), tokio::runtime::Handle::try_current()) {
-            handle.spawn(async move { server.stop().await });
-        }
-    }
 }

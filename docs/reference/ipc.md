@@ -118,6 +118,11 @@ one module, `crates/transport/src/platform/windows/security.rs`, with a
 `SAFETY` comment on every block, RAII guards for every allocation and
 handle, and tests that run on the Windows CI runner.
 
+**Remote gRPC** is not one of these transports. `[remote]` starts a second server, in
+the daemon, on a TCP address of any interface, with TLS and a bearer token checked
+before anything else runs; the local endpoint and its rules are unchanged beside it
+([configuration](../guides/configuration.md#remote-grpc)).
+
 ## Limits and backpressure (SPEC §16, §41)
 
 `Limits` is a builder over a meaningful `Default`, validated at bind:

@@ -278,8 +278,16 @@ upgrade bring it back, `ring` (C) is excused only where it is reached through th
 the runtime is in the graph; OpenTelemetry and the runtime crates only beneath
 `norn-server`. The engine (core, codec, storage, index, query, state, replay, runtime,
 metadata) must reach none of it, not even rustls; `xtask/tests/runtime_gates.rs`
-proves each rule bites and checks this repository. Norn configures no TLS, and
-building `norn` needs no C compiler.
+proves each rule bites and checks this repository.
+
+Remote gRPC uses that excuse: `norn-server`'s `remote` feature turns on `tpp-grpc`'s
+`tls`, so `ring` is linked into `norn` in release builds, which turn the feature on
+(`just release-build`). The owner chose this on 2026-11-16 over writing a TLS acceptor
+around the runtime on `aws-lc-rs`: ring is widely used and maintained, and the
+runtime already serves TLS with it. `xtask deps` examines the graph with
+`deps::RELEASE_FEATURES` on as well as the defaults, so what ships is what is
+checked, and a test fails if that list and the release recipe differ. A plain
+`cargo build -p norn-server` still needs no C compiler.
 
 A second exception arrives with shared memory in 1.0.0-rc.1, `xtask/src/iceoryx2.rs`: two of
 iceoryx2's platform crates name `cc` and `bindgen` as build-dependencies that run only

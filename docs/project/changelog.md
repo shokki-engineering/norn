@@ -7,6 +7,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Unreleased
 
+### Remote gRPC
+
+- `[remote]` serves the gRPC API to other machines: a second server beside the local
+  endpoint, over the same database, with TLS from a configured certificate and key, and
+  a bearer token every call must present (`UNAUTHENTICATED` otherwise, checked before
+  decoding or any budget). The token file must be owner-only and at least 32 bytes. No
+  MCP, reflection or shared memory there. `max_clients` (default 16) adds to the local
+  limit when flow-control windows are sized ([configuration](../guides/configuration.md#remote-grpc)).
+- Behind `norn-server`'s `remote` feature, which release builds turn on. Its TLS is
+  rustls with `ring`, C and assembly, linked into `norn` only; the engine stays pure Rust.
+  `xtask deps` now examines the graph with the release features on
+  ([architecture](../reference/architecture.md#no-c)).
+- `nornctl` does not connect remotely yet.
+
 ### Disk use
 
 - A daemon-wide disk budget, closing security review L1. `[storage] min_free_bytes`

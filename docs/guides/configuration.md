@@ -184,6 +184,33 @@ and the daemon only logs a warning at every start. Prefer `stdio`, a `unix:` soc
 (created with an owner-only security descriptor)
 ([security review](../security/review-2026-11.md), F5).
 
+## Remote gRPC
+
+Off by default, and only in a `norn` built with the `remote` feature, which release
+archives and Homebrew have; a build without it refuses the section. The local endpoint
+stays on beside it, unchanged and without a token.
+
+```toml
+[remote]
+listen = "0.0.0.0:7443"                # any address; port 0 picks one
+cert_file = "/etc/norn/tls/cert.pem"   # PEM certificate chain
+key_file = "/etc/norn/tls/key.pem"     # PEM private key
+token_file = "/etc/norn/token"         # the bearer token, owner-only
+max_clients = 16                       # remote connections at once, 1 to 1024
+```
+
+Every call must carry `authorization: Bearer <token>`, or it fails with
+`UNAUTHENTICATED` before it is decoded or charged to any budget. The token is the
+file's contents with surrounding whitespace trimmed: at least 32 bytes of printable
+ASCII without spaces, so `openssl rand -hex 32 > /etc/norn/token` makes one. On Unix
+the file must be mode 0600 or the daemon will not start. TLS is served from the
+certificate and key with rustls; there is no plaintext fallback and no client
+certificate check. The remote listener serves the gRPC API and its health only: no
+MCP, no reflection, and no shared-memory data plane, which needs a local socket.
+`max_clients` adds to `[limits] max_clients`: every connection's flow-control window
+comes from half of `ipc_bytes`, so more remote clients means smaller windows for all.
+[Using Norn from your own code](clients.md#from-another-machine) shows a client.
+
 ## Shared memory
 
 New in 1.0.0-rc.1 (protocol 1.7), and off by default. When enabled, a client that asks for

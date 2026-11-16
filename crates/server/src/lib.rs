@@ -70,6 +70,7 @@ mod signal;
 mod state;
 mod status;
 mod telemetry;
+mod token_gate;
 mod unimplemented;
 mod version_gate;
 
@@ -77,7 +78,7 @@ pub use admin::Admin;
 pub use catalog::Catalog;
 pub use config::{
     ConfigError, DaemonConfig, LogConfig, LogFormat, LogLevel, McpConfig, McpTransport,
-    SharedMemorySettings,
+    RemoteConfig, SharedMemorySettings,
 };
 pub use daemon::{Daemon, DaemonError};
 pub use events::{Events, Subscriptions};
@@ -96,5 +97,6 @@ pub use signal::shutdown_requested;
 pub use state::States;
 pub use status::ERROR_DOMAIN;
 pub use telemetry::Telemetry;
+pub use token_gate::{TokenGate, TokenGateLayer};
 pub use unimplemented::{Stubbed, Unimplemented};
 pub use version_gate::{VersionGate, VersionGateLayer};

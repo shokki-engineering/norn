@@ -40,6 +40,8 @@ use crate::telemetry::{Plane, Telemetry};
 /// What `build_router` makes, for the daemon to hold and run.
 pub(super) struct Built {
     pub(super) server: HybridServer,
+    /// The remote server, when `[remote]` is configured.
+    pub(super) remote: Option<HybridServer>,
     /// The flow-control reservation, held for life.
     pub(super) windows: Reservation,
     pub(super) reporter: HealthReporter,
@@ -123,7 +125,10 @@ pub(super) async fn build_router(
         .tracked(calls.clone())
         .plane(plane);
     let meter = MeterLayer::new(ipc, limits);
-    let window = connection_window(engine.memory().ipc_bytes / 2, engine.limits().max_clients);
+    // Remote clients hold windows from the same half of `ipc_bytes`.
+    let remote_clients = config.remote_settings().map_or(0, |r| r.max_clients());
+    let clients = engine.limits().max_clients.saturating_add(remote_clients);
+    let window = connection_window(engine.memory().ipc_bytes / 2, clients);
     let services = super::serve::Registered {
         health,
         admin,
@@ -136,13 +141,46 @@ pub(super) async fn build_router(
         states: StateServiceServer::new(states),
         operations: OperationsServer::new(OperationsService::new(Arc::clone(&maintenance))),
     };
+    let remote = remote_server(config, &wiring, &services, &meter, window)?;
     let server = super::serve::build(config, wiring, services, meter, window)?;
     Ok(Built {
         server,
+        remote,
         windows,
         reporter,
         replays,
         maintenance,
         calls,
     })
+}
+
+/// The remote server, if `[remote]` is configured; reads its token file now, so a
+/// bad one stops the daemon before anything is served.
+#[cfg(feature = "remote")]
+fn remote_server<H: tonic_health::pb::health_server::Health>(
+    config: &DaemonConfig,
+    wiring: &super::serve::Wiring,
+    services: &super::serve::Registered<H>,
+    meter: &MeterLayer,
+    window: u32,
+) -> Result<Option<HybridServer>, DaemonError> {
+    let Some(remote) = config.remote_settings() else {
+        return Ok(None);
+    };
+    let token = super::remote::token(&remote.token_file)?;
+    let (open, s) = (wiring.open.clone(), services.clone());
+    let server = super::remote::build(config, remote, token, open, s, meter.clone(), window);
+    Ok(Some(server))
+}
+
+/// Without the `remote` feature, configuration refuses `[remote]`.
+#[cfg(not(feature = "remote"))]
+fn remote_server<H: tonic_health::pb::health_server::Health>(
+    _: &DaemonConfig,
+    _: &super::serve::Wiring,
+    _: &super::serve::Registered<H>,
+    _: &MeterLayer,
+    _: u32,
+) -> Result<Option<HybridServer>, DaemonError> {
+    Ok(None)
 }

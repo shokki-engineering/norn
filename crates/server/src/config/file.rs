@@ -11,6 +11,7 @@ use serde::Deserialize;
 
 use super::engine::{Count, Memory, Meta, Storage, Upkeep, engine, set};
 use super::mcp::Mcp;
+use super::remote::Remote;
 use super::shared::SharedMemory;
 use super::{ConfigError, DaemonConfig, LogConfig};
 
@@ -36,6 +37,7 @@ struct File {
     maintenance: Option<Upkeep>,
     mcp: Option<Mcp>,
     shared_memory: Option<SharedMemory>,
+    remote: Option<Remote>,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -116,6 +118,7 @@ impl DaemonConfig {
         }
         config.log = log;
         config.mcp = file.mcp.unwrap_or_default().config()?;
+        config.remote = file.remote.unwrap_or_default().config()?;
         let mut storage = file.storage;
         config.keys = match storage.as_mut() {
             Some(storage) => storage.key_source()?,

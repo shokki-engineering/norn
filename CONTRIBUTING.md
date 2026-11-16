@@ -26,7 +26,7 @@ documentation to fit.
 | `purity` | `crates/core/src` names `std::fs`, `std::io`, `std::net`, `std::env`, `std::process`, `std::thread`, `SystemTime` or `Instant` outside a comment |
 | `docs` | a crate root does not open with a `//!` layer contract; a relative link, image or `#anchor` in a Markdown file does not resolve; a file under `docs/` is missing from the README's Contents, or the reverse; a README exists anywhere but the root |
 | `arch` | a crate depends outward, or has no row in the layer table |
-| `deps` | a shipped dependency graph, on a target Norn builds, reaches C (`links`, `cc`, `cmake`, ...) |
+| `deps` | a shipped dependency graph, on a target Norn builds and with the features releases turn on, reaches C (`links`, `cc`, `cmake`, ...) beyond the excuses in docs/reference/architecture.md |
 
 Every gate also fails when it examined nothing, and every gate has a test in
 `xtask/tests/` proving it bites. Never weaken a gate to pass: fix the code,

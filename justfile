@@ -16,6 +16,7 @@ gates:
 # Unit, integration and documentation tests, including the gate tests.
 test:
     cargo test --workspace --locked --no-fail-fast
+    cargo test --locked -p norn-server --features remote --lib --test remote --test remote_config --test config
 
 # The real nornctl against a real daemon, the bugs unit tests cannot see.
 e2e:
@@ -53,6 +54,7 @@ bench-matrix *args:
 lint:
     cargo fmt --all --check
     cargo clippy --workspace --all-targets --locked -- -D warnings
+    cargo clippy -p norn-server --all-targets --locked --features remote -- -D warnings
 
 # Rustdoc with warnings as errors.
 doc:
@@ -61,6 +63,7 @@ doc:
 # Licences, advisories and sources across the whole graph.
 deny:
     cargo deny --locked check
+    cargo deny --locked --features norn-server/remote check
 
 # Protobuf style and formatting. Missing schemas must fail the gate.
 buf:
@@ -154,9 +157,10 @@ cross target:
 release-plan:
     bash .github/release/plan.sh
 
-# Build and package the daemon and CLI for an installed Rust target.
+# Build and package the daemon and CLI for an installed Rust target. Releases
+# include remote gRPC (`[remote]`), which is off until configured.
 release-build target:
-    cargo build --release --locked -p norn-server -p norn-cli --target "{{ target }}"
+    cargo build --release --locked -p norn-server -p norn-cli --features norn-server/remote --target "{{ target }}"
 
 release-package target version:
     {{ python }} .github/release/package.py "{{ target }}" "{{ version }}"
