@@ -3,52 +3,17 @@
 
 //! Telling the temporal index what was stored, and what its refusals mean.
 
-use std::fmt;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 
 use norn_core::StreamId;
 use norn_index::{IndexError, TemporalIndex};
 use norn_storage::format::frame::ChunkMeta;
-use norn_storage::{
-    Appended, CompactionOutcome, SegmentName, SegmentSummary, StorageError, StreamWriter,
-};
+use norn_storage::{Appended, CompactionOutcome, SegmentName, SegmentSummary, StreamWriter};
 
 use super::Ingest;
+use super::sealed::SealedStreams;
 use super::shared::Shared;
-
-/// Why startup recovery failed.
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum RecoverError {
-    /// A stream could not be assessed.
-    Storage(StorageError),
-    /// The index could not open.
-    Index(IndexError),
-}
-
-impl From<StorageError> for RecoverError {
-    fn from(e: StorageError) -> Self {
-        Self::Storage(e)
-    }
-}
-
-impl From<IndexError> for RecoverError {
-    fn from(e: IndexError) -> Self {
-        Self::Index(e)
-    }
-}
-
-impl fmt::Display for RecoverError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Storage(e) => write!(f, "{e}"),
-            Self::Index(e) => write!(f, "{e}"),
-        }
-    }
-}
-
-impl std::error::Error for RecoverError {}
 
 /// Whether an index update took effect, logging what does not need more.
 fn took_effect(stream: StreamId, result: Result<(), IndexError>) -> Result<(), IndexError> {
@@ -68,6 +33,8 @@ fn took_effect(stream: StreamId, result: Result<(), IndexError>) -> Result<(), I
 pub(crate) struct Publisher<'a> {
     index: Option<&'a TemporalIndex>,
     shared: &'a Shared,
+    /// Told of each seal; `None` during recovery.
+    sealed: Option<&'a SealedStreams>,
     segment: Option<PathBuf>,
     pending: Vec<ChunkMeta>,
     /// Chunks were written that the index can no longer be told of until restart,
@@ -76,10 +43,15 @@ pub(crate) struct Publisher<'a> {
 }
 
 impl<'a> Publisher<'a> {
-    pub(crate) fn new(index: Option<&'a TemporalIndex>, shared: &'a Shared) -> Self {
+    pub(crate) fn new(
+        index: Option<&'a TemporalIndex>,
+        shared: &'a Shared,
+        sealed: Option<&'a SealedStreams>,
+    ) -> Self {
         Self {
             index,
             shared,
+            sealed,
             segment: None,
             pending: Vec::new(),
             lost: false,
@@ -126,12 +98,15 @@ impl<'a> Publisher<'a> {
         }
     }
 
-    /// Reports a sealed segment.
+    /// Reports a sealed segment, to the index and then to maintenance.
     pub(crate) fn sealed(&mut self, summary: &SegmentSummary) {
         let Some(index) = self.index else { return };
         let stream = self.shared.stream;
         if let Err(e) = took_effect(stream, index.segment_sealed(stream, summary)) {
             self.behind(&e);
+        }
+        if let Some(sealed) = self.sealed {
+            sealed.mark(stream);
         }
     }
 

@@ -48,6 +48,7 @@
 
 mod append;
 mod client;
+mod conn;
 mod data_plane;
 mod error;
 mod server;
@@ -56,6 +57,7 @@ mod ticket;
 
 pub use append::{AppendCall, AppendOptions, AppendReplies, AppendSender, DEFAULT_CAPACITY};
 pub use client::{connect, connect_lazy, connect_with};
+pub use conn::{Conn, Credentials};
 pub use data_plane::{ControlPlaneOnly, DataPlane, DataPlaneKind, SendFuture, negotiate};
 pub use error::IpcError;
 pub use norn_transport::{Endpoint, Limits, Overflow};

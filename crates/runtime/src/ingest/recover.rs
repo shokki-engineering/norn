@@ -17,8 +17,9 @@ use norn_storage::{
 
 use super::buffer::Buffers;
 use super::dedup::Dedup;
-use super::indexing::{Publisher, RecoverError};
+use super::indexing::Publisher;
 use super::journal::{journal_dir, journal_options};
+use super::recover_error::RecoverError;
 use super::report::{IndexSummary, IngestRecovery};
 use super::scan::{key, reconcile};
 use super::shared::Shared;
@@ -125,7 +126,7 @@ impl Ingest {
         }
         let shared = Shared::new(id, stats, Buffers::new(&opts));
         let mut writer = StreamWriter::open(dir, id, opts)?;
-        let mut none = Publisher::new(None, &shared);
+        let mut none = Publisher::new(None, &shared, None);
         let generation = buffers.seal(consumed);
         store(&mut writer, generation, &opts, &journal, &shared, &mut none)?;
         writer.close()?;

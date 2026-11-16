@@ -6,7 +6,7 @@
 use std::sync::{Arc, PoisonError};
 
 use norn_core::{StreamId, Timestamp};
-use norn_metadata::{Registry, Retention};
+use norn_metadata::Retention;
 use norn_storage::{SegmentName, remove_segments, stream_dir};
 
 use super::Maintenance;
@@ -57,13 +57,13 @@ pub struct RetentionReport {
     pub removed: Vec<RemovedSegment>,
 }
 
-/// `stream`'s policy, from the registry at this moment.
-fn policy(registry: &Registry, stream: StreamId) -> Option<Retention> {
-    let name = registry.stream_name(stream)?;
-    registry.stream(&name).ok().map(|r| r.retention)
-}
-
 impl Maintenance {
+    /// `stream`'s policy, from the registry at this moment.
+    pub(super) fn policy(&self, stream: StreamId) -> Option<Retention> {
+        let name = self.registry.stream_name(stream)?;
+        self.registry.stream(&name).ok().map(|r| r.retention)
+    }
+
     /// Runs `stream`'s policy. Under `dry_run` this is pure reading.
     ///
     /// Otherwise it logs what it will remove first, at `WARN`, deletes oldest first
@@ -83,10 +83,8 @@ impl Maintenance {
             applied: !dry_run,
             ..RetentionReport::default()
         };
-        let (Some(index), Some(rule)) = (
-            self.ingest.index().map(Arc::clone),
-            policy(self.registry.as_ref(), stream),
-        ) else {
+        let (Some(index), Some(rule)) = (self.ingest.index().map(Arc::clone), self.policy(stream))
+        else {
             return Ok(report);
         };
         let snapshot = index.snapshot();

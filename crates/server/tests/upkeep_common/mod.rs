@@ -11,11 +11,12 @@ use norn_protocol::admin::admin_service_client::AdminServiceClient;
 use norn_protocol::admin::{GetServerRequest, Server};
 use norn_protocol::google::longrunning::operations_client::OperationsClient;
 use norn_protocol::google::longrunning::{GetOperationRequest, Operation, operation};
+use norn_protocol::stream::retention_policy::Limit;
 use norn_protocol::stream::stream_service_client::StreamServiceClient;
 use norn_protocol::stream::{
     ApplyStreamRetentionRequest, ApplyStreamRetentionResponse, CompactStreamRequest,
-    CompactStreamResponse, GetStreamRequest, Stream, StreamStats, VerifyStreamRequest,
-    VerifyStreamResponse,
+    CompactStreamResponse, GetStreamRequest, RetentionPolicy, Stream, StreamStats,
+    UpdateStreamRequest, VerifyStreamRequest, VerifyStreamResponse,
 };
 use tonic::transport::Channel;
 
@@ -79,6 +80,23 @@ pub async fn retention(channel: &Channel, validate_only: bool) -> ApplyStreamRet
     let mut client = StreamServiceClient::new(channel.clone());
     let op = client.apply_stream_retention(request).await;
     response(finished(channel, op.unwrap().into_inner()).await)
+}
+
+/// Records `limit` as the plant stream's retention policy.
+pub async fn set_policy(channel: &Channel, limit: Limit) {
+    let request = UpdateStreamRequest {
+        stream: Some(Stream {
+            name: PLANT.into(),
+            retention: Some(RetentionPolicy { limit: Some(limit) }),
+            ..Stream::default()
+        }),
+        update_mask: Some(prost_types::FieldMask {
+            paths: vec!["retention".into()],
+        }),
+        validate_only: false,
+    };
+    let mut client = StreamServiceClient::new(channel.clone());
+    client.update_stream(request).await.unwrap();
 }
 
 pub async fn stream(channel: &Channel) -> Stream {

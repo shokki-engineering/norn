@@ -5,13 +5,13 @@
 
 use std::collections::BTreeSet;
 
+use norn_ipc::Conn;
 use norn_protocol::entity::GetEntityRequest;
 use norn_protocol::entity::entity_service_client::EntityServiceClient;
 use norn_protocol::signal::ListSignalsRequest;
 use norn_protocol::signal::signal_service_client::SignalServiceClient;
 use norn_protocol::stream::GetStreamRequest;
 use norn_protocol::stream::stream_service_client::StreamServiceClient;
-use tonic::transport::Channel;
 
 use crate::{AdapterError, Catalog, entity_of};
 
@@ -20,7 +20,7 @@ const PAGE: i32 = 1000;
 
 /// The signals under `parent` matching `filter`, with their entities and streams.
 pub(crate) async fn catalog(
-    channel: &Channel,
+    channel: &Conn,
     parent: &str,
     filter: &str,
     max_signals: usize,

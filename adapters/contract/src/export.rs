@@ -3,11 +3,11 @@
 
 //! Reading a selection out of the daemon, into a sink.
 
+use norn_ipc::Conn;
 use norn_protocol::admin::Capability;
 use norn_protocol::google::r#type::Interval;
 use norn_protocol::query::QuerySamplesRequest;
 use norn_protocol::query::query_service_client::QueryServiceClient;
-use tonic::transport::Channel;
 
 use crate::wire::{listing, negotiate};
 use crate::{AdapterError, DEFAULT_MAX_SIGNALS, SampleSink};
@@ -100,11 +100,12 @@ pub struct ExportReport {
 /// never skipped; whatever the sink reports. The output is then incomplete, and
 /// the caller removes it.
 pub async fn export<S: SampleSink + ?Sized>(
-    channel: Channel,
+    channel: impl Into<Conn>,
     selection: &Selection,
     sink: &mut S,
     options: &ExportOptions,
 ) -> Result<ExportReport, AdapterError> {
+    let channel = channel.into();
     negotiate(channel.clone(), &[Capability::QueryRange]).await?;
     let catalog = listing::catalog(
         &channel,

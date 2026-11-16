@@ -3,17 +3,22 @@
 
 //! The daemon: a runtime whose tasks serve gRPC over local IPC.
 
+mod bound;
 mod claim;
 mod error;
 pub(crate) mod open;
 mod reflection;
+#[cfg(feature = "remote")]
+mod remote;
 mod router;
+mod run;
 mod serve;
 mod tasks;
 
 pub use error::DaemonError;
 
 use std::fmt;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -21,7 +26,7 @@ use norn_ipc::Endpoint;
 use norn_runtime::ingest::{Ingest, IngestRecovery};
 use norn_runtime::maintenance::{CompactionPhase, Maintenance};
 use norn_runtime::sessions::Replays;
-use norn_runtime::{HealthWatch, Reservation, RunReport, Runtime};
+use norn_runtime::{HealthWatch, Reservation, Runtime};
 use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
@@ -31,7 +36,6 @@ use self::claim::claim_endpoints;
 use self::open::open_database;
 use self::router::build_router;
 use crate::config::DaemonConfig;
-use crate::health::reflect;
 
 /// Slack the runtime gives the IPC task beyond its own drain bound, so the
 /// server finishes aborting connections before the runtime aborts it.
@@ -52,8 +56,10 @@ const SHUTDOWN_SLACK: Duration = Duration::from_secs(5);
 /// [`health`](Daemon::health) watch first to observe it while it runs.
 pub struct Daemon {
     runtime: Runtime,
-    server: serve::Bound,
+    server: bound::Bound,
     endpoint: Endpoint,
+    /// The remote listener's address, when `[remote]` is configured.
+    remote: Option<SocketAddr>,
     /// Whether calls are answered yet.
     opening: watch::Sender<bool>,
     /// Cancelled when MCP's stdio client leaves.
@@ -103,11 +109,12 @@ impl Daemon {
             ended: ended.clone(),
         };
         let built = build_router(&config, &runtime, database, wiring).await?;
-        let (server, endpoint) = serve::Bound::start(built.server, &config.endpoint()).await?;
+        let started = bound::Bound::start(built.server, &config.endpoint(), built.remote).await?;
         Ok(Self {
             runtime,
-            server,
-            endpoint,
+            server: started.bound,
+            endpoint: started.endpoint,
+            remote: started.remote,
             opening,
             ended,
             reporter: built.reporter,
@@ -139,61 +146,16 @@ impl Daemon {
         &self.endpoint
     }
 
+    /// The remote listener's address (with any ephemeral port resolved), when
+    /// `[remote]` is configured.
+    #[must_use]
+    pub fn remote_addr(&self) -> Option<SocketAddr> {
+        self.remote
+    }
+
     /// A watch on the daemon's lifecycle; valid after `run` consumes it.
     #[must_use]
     pub fn health(&self) -> HealthWatch {
         self.runtime.health()
-    }
-
-    /// Serves until `cancel` is cancelled, then drains and stops.
-    ///
-    /// # Errors
-    ///
-    /// [`DaemonError::Runtime`] when a task fails fatally (the IPC server
-    /// erroring, or its drain getting stuck), after every task has stopped.
-    pub async fn run(self, cancel: CancellationToken) -> Result<RunReport, DaemonError> {
-        let Self {
-            runtime,
-            server,
-            endpoint: _,
-            opening,
-            ended,
-            reporter,
-            ingest,
-            recovery: _,
-            replays,
-            maintenance,
-            calls,
-            _windows,
-        } = self;
-        // Nothing has been answered until now; every task below is added first.
-        let watch = runtime.health();
-        let stop = cancel.clone();
-        runtime.add_task("mcp-stdio", move |token| {
-            tasks::stop_when(ended, stop, token)
-        })?;
-        runtime.add_task("health", move |token| reflect(watch, reporter, token))?;
-        let draining = Arc::clone(&ingest);
-        runtime.add_task("ingest", move |token| tasks::drain_ingest(draining, token))?;
-        // Expires idle sessions; on shutdown ends them all and joins their tasks.
-        runtime.add_task("replay", move |token| async move {
-            replays.run(token).await;
-            Ok(())
-        })?;
-        // Cancelled by dropping the guard, so a panicking worker cannot hang
-        // shutdown behind it.
-        let quiet = CancellationToken::new();
-        let done = quiet.clone().drop_guard();
-        runtime.add_task("maintenance", move |token| async move {
-            let _done = done;
-            maintenance.run(token).await;
-            Ok(())
-        })?;
-        runtime.add_task("ipc", move |token| async move {
-            let _ = opening.send(true);
-            token.cancelled().await;
-            tasks::stop_serving(server, calls, quiet, ingest).await
-        })?;
-        Ok(runtime.run(cancel).await?)
     }
 }

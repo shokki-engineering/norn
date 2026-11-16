@@ -95,6 +95,11 @@ commands:
 options:
   --endpoint ENDPOINT  the daemon's endpoint, such as unix:/run/norn/norn.sock
                        (default: the platform's per-user endpoint, as norn's)
+  --remote HOST:PORT   a daemon's [remote] listener, over TLS, instead of the
+                       local endpoint; needs --token-file
+  --token-file PATH    the file holding that daemon's bearer token
+  --ca-file PATH       a PEM CA certificate to trust for --remote, instead of
+                       the system's
   --timeout SECONDS    give up on connecting or on any call after this long
                        (default 5)
   -h, --help           print this text";

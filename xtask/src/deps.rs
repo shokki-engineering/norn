@@ -40,6 +40,11 @@ pub const PLATFORMS: &[&str] = &[
     "x86_64-pc-windows-msvc",
 ];
 
+/// The features release builds turn on beyond the defaults (the justfile's
+/// `release-build`), so the gate examines what ships, not only a plain build.
+/// `xtask/tests/runtime_gates.rs` fails if the recipe and this list differ.
+pub const RELEASE_FEATURES: &[&str] = &["norn-server/remote", "norn-cli/remote"];
+
 /// Workspace members whose graphs may reach C, with the reason. Empty: no
 /// Norn crate needs C. Adding one is an architecture decision; record it in
 /// docs/reference/architecture.md and the commit.

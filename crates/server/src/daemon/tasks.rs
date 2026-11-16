@@ -10,7 +10,7 @@ use norn_runtime::ingest::Ingest;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
-use super::serve::Bound;
+use super::bound::Bound;
 
 /// A runtime task: when MCP's stdio client leaves (`ended`), stops the daemon
 /// (`stop`), since the client is what it was running for. Ends with `token`.

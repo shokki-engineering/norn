@@ -21,7 +21,6 @@ use tokio::sync::mpsc;
 use tonic::Status;
 use tonic::codegen::tokio_stream::Stream;
 use tonic::metadata::MetadataValue;
-use tonic::transport::Channel;
 
 pub use self::replies::AppendReplies;
 pub use self::sender::AppendSender;
@@ -104,13 +103,17 @@ pub struct AppendCall {
 }
 
 impl AppendCall {
-    /// Opens the call over `channel`.
+    /// Opens the call over `channel`, a [`Conn`](crate::Conn) or a `Channel`.
     ///
     /// # Errors
     ///
     /// The status the call itself fails with. Failing to reach a ring is not
     /// an error: the call is then on gRPC.
-    pub async fn open(channel: Channel, options: &AppendOptions) -> Result<Self, Status> {
+    pub async fn open(
+        channel: impl Into<crate::Conn>,
+        options: &AppendOptions,
+    ) -> Result<Self, Status> {
+        let channel = channel.into();
         let plane = match &options.attach {
             Some(_) => offer::shared_memory(channel.clone()).await,
             None => None,

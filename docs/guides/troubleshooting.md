@@ -99,6 +99,34 @@ $ nornctl streams create Bad_Name
 nornctl: StreamService.CreateStream: InvalidArgument: stream_id: must start with a lowercase letter (norn.local ERROR_REASON_INVALID_ARGUMENT) field=stream_id
 ```
 
+## `the disk budget is spent`
+
+```text
+ERROR disk budget spent: refusing every batch why=40 bytes free on the data volume, min_free_bytes = 268435456
+```
+
+A `[storage]` disk limit was reached, and every batch is refused with
+`STORAGE_UNAVAILABLE` and a one-second retry delay. Nothing was lost and nothing is
+deleted. Free space, set a retention policy, or raise the limit
+([configuration](configuration.md)); within a second of room returning, batches are
+admitted again and the daemon logs `disk budget has room again`.
+
+## `No space left on device`, then `this stream's storage failed`
+
+```text
+batch 65: write .../streams/0000000000000001/journal/0000000000000000-g0000.nseg: No space left on device (os error 28)
+batch 66: this stream's storage failed; see the daemon's log, then restart it
+```
+
+The disk filled. The batch that hit it was not acknowledged, so a client retries it.
+Every batch already acknowledged `DURABLE` is on disk. That stream then refuses every
+batch until the daemon restarts, even once space returns; other streams go on until
+they too need room. Free space, restart the daemon, and the client's retries are
+stored, any duplicates reported as such. The disk budget's `min_free_bytes`, 256 MiB by
+default, refuses batches before the disk fills; this happens with it set to zero, or
+when writes outrun it within a second ([configuration](configuration.md)). `just disk-full` runs this on a real
+32 MiB filesystem.
+
 ## `this daemon is configured without fsync`
 
 `durable_acks = false` is set and the request asked for `DURABLE`, the default of

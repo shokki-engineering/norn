@@ -16,6 +16,8 @@ gates:
 # Unit, integration and documentation tests, including the gate tests.
 test:
     cargo test --workspace --locked --no-fail-fast
+    cargo test --locked -p norn-server --features remote --lib --test remote --test remote_config --test config
+    cargo test --locked -p norn-cli --features norn-cli/remote,norn-server/remote --test remote
 
 # The real nornctl against a real daemon, the bugs unit tests cannot see.
 e2e:
@@ -28,6 +30,12 @@ crash:
     cargo test --locked -p norn-runtime --test journal
     cargo test --locked -p norn-metadata --test batch_recovery
     cargo test --locked -p norn-server --test crash --test compaction_kill --test shared_memory_crash --test query_damage
+
+# A full disk: nothing acknowledged is lost, and ingest resumes once space returns.
+# Mounts a small filesystem (sudo on Linux), so CI runs it as its own job.
+[unix]
+disk-full:
+    tools/disk-full.sh
 
 # Benchmark smoke runs include real daemons over Unix sockets.
 [unix]
@@ -47,6 +55,7 @@ bench-matrix *args:
 lint:
     cargo fmt --all --check
     cargo clippy --workspace --all-targets --locked -- -D warnings
+    cargo clippy --workspace --all-targets --locked --features norn-server/remote,norn-cli/remote -- -D warnings
 
 # Rustdoc with warnings as errors.
 doc:
@@ -55,6 +64,7 @@ doc:
 # Licences, advisories and sources across the whole graph.
 deny:
     cargo deny --locked check
+    cargo deny --locked --features norn-server/remote,norn-cli/remote check
 
 # Protobuf style and formatting. Missing schemas must fail the gate.
 buf:
@@ -148,9 +158,10 @@ cross target:
 release-plan:
     bash .github/release/plan.sh
 
-# Build and package the daemon and CLI for an installed Rust target.
+# Build and package the daemon and CLI for an installed Rust target. Releases
+# include remote gRPC (`[remote]`), which is off until configured.
 release-build target:
-    cargo build --release --locked -p norn-server -p norn-cli --target "{{ target }}"
+    cargo build --release --locked -p norn-server -p norn-cli --features norn-server/remote,norn-cli/remote --target "{{ target }}"
 
 release-package target version:
     {{ python }} .github/release/package.py "{{ target }}" "{{ version }}"

@@ -38,6 +38,14 @@ prost-types = { workspace = true }
 prost = { workspace = true }
 tokio = { workspace = true, features = ["rt", "time"] }
 
+[features]
+# `--remote`: a daemon's `[remote]` listener over TLS, with its bearer token.
+# tonic's rustls client with ring (C and assembly), reached only through the
+# shared rustls crates (xtask/src/runtime_rs.rs); the owner accepted it for
+# nornctl on 2026-11-16. Native roots: the system's trust store, as grpcurl's.
+# Off in a plain build; release builds turn it on (justfile, `release-build`).
+remote = ["tonic/tls-ring", "tonic/tls-native-roots"]
+
 [dev-dependencies]
 # The integration test runs a real daemon in-process and nornctl against it.
 norn-server = { path = "../server" }

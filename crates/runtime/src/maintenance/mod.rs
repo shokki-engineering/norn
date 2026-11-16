@@ -10,6 +10,7 @@
 
 mod backup;
 mod compaction;
+mod disk;
 mod months;
 mod ops;
 mod plan;
@@ -29,7 +30,7 @@ pub use retention::{RemovedSegment, RetentionReport};
 pub use verify::{DamagedRegion, VerifyReport};
 
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use norn_core::{MaintenanceConfig, StreamId, Timestamp};
@@ -91,6 +92,8 @@ pub struct Maintenance {
     rx: Mutex<Option<mpsc::Receiver<Arc<Operation>>>>,
     next_id: AtomicU64,
     probe: OnceLock<Probe>,
+    /// The disk budget's last level, to log only its changes.
+    disk_level: AtomicU8,
 }
 
 impl std::fmt::Debug for Maintenance {
@@ -124,6 +127,7 @@ impl Maintenance {
             rx: Mutex::new(Some(rx)),
             next_id: AtomicU64::new(0),
             probe: OnceLock::new(),
+            disk_level: AtomicU8::new(0),
         }
     }
 

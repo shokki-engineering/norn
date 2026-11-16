@@ -6,13 +6,13 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use norn_ipc::Conn;
 use norn_protocol::admin::admin_service_client::AdminServiceClient;
 use norn_protocol::admin::{GetServerRequest, Limits};
 use norn_protocol::common::value::Kind;
 use norn_protocol::common::{Quality, QualitySeverity, Sample, Value};
 use prost::Message;
 use prost_types::Timestamp;
-use tonic::transport::Channel;
 
 use super::plan::Plan;
 use crate::CliError;
@@ -23,7 +23,7 @@ const TICK_PER_SECOND: u64 = 100;
 /// The default batch at `--rate max`.
 const MAX_RATE_BATCH: usize = 1000;
 
-pub(super) async fn limits(channel: &Channel) -> Result<Limits, CliError> {
+pub(super) async fn limits(channel: &Conn) -> Result<Limits, CliError> {
     let name = "server".to_owned();
     let server = AdminServiceClient::new(channel.clone())
         .get_server(GetServerRequest { name })

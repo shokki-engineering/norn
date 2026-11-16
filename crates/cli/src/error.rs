@@ -21,6 +21,13 @@ pub enum CliError {
         /// Why it failed.
         source: IpcError,
     },
+    /// A remote daemon (`--remote`) could not be reached, or TLS failed.
+    Remote {
+        /// The `HOST:PORT` given.
+        address: String,
+        /// Why, with its causes.
+        why: String,
+    },
     /// The daemon answered a call with an error status.
     Call {
         /// The method, such as `AdminService.NegotiateProtocol`.
@@ -74,6 +81,9 @@ impl fmt::Display for CliError {
                 }
                 Ok(())
             }
+            Self::Remote { address, why } => {
+                write!(f, "cannot reach the daemon at https://{address}: {why}")
+            }
             Self::Malformed { method, field } => write!(f, "{method}: response lacks {field}"),
             Self::Usage(text) | Self::Refused(text) => f.write_str(text),
             Self::Output(e) => write!(f, "writing output: {e}"),
@@ -89,7 +99,9 @@ impl std::error::Error for CliError {
             Self::Call { status, .. } => Some(status),
             Self::Output(e) => Some(e),
             Self::Adapter(e) => Some(e),
-            Self::Malformed { .. } | Self::Usage(_) | Self::Refused(_) => None,
+            Self::Malformed { .. } | Self::Remote { .. } | Self::Usage(_) | Self::Refused(_) => {
+                None
+            }
         }
     }
 }

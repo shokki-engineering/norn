@@ -16,6 +16,11 @@ usage: nornctl [OPTIONS] COMMAND
 options:
   --endpoint ENDPOINT  the daemon's endpoint, such as unix:/run/norn/norn.sock
                        (default: the platform's per-user endpoint, as norn's)
+  --remote HOST:PORT   a daemon's [remote] listener, over TLS, instead of the
+                       local endpoint; needs --token-file
+  --token-file PATH    the file holding that daemon's bearer token
+  --ca-file PATH       a PEM CA certificate to trust for --remote, instead of
+                       the system's
   --timeout SECONDS    give up on connecting or on any call after this long
                        (default 5)
   -h, --help           print this text
@@ -120,6 +125,15 @@ From 1.0.0-rc.1, when `nornctl` cannot reach a daemon on a Unix socket, the erro
 the two usual causes: `cannot reach the daemon at ENDPOINT: ... (is the daemon
 running? It also refuses to start unless the socket's directory is mode 0700; its
 log says which)`.
+
+**Remote.** `--remote HOST:PORT --token-file PATH` reaches a daemon's `[remote]`
+listener over TLS instead of the local endpoint, sending the file's token, trimmed,
+on every call ([configuration](../guides/configuration.md#remote-grpc)). The
+certificate must name HOST and chain to the system's trust store, or to
+`--ca-file`'s CA for a private one. Every command works the same way remotely, except
+that `--shared-memory` stays on gRPC: a ring needs the daemon's machine. A wrong token
+fails each command with `Unauthenticated`. In a build without the `remote` feature,
+`--remote` is refused; release archives have it.
 
 ## streams, entities, signals
 

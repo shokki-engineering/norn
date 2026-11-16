@@ -23,7 +23,7 @@ It stores the history of sensor data and device telemetry, answers questions abo
 <a href="https://grpc.io"><img alt="gRPC: always on" src="https://img.shields.io/badge/gRPC-always%20on-244C5A?style=flat-square"></a>
 <a href="protobuf"><img alt="Protocol crate 1.0.0-rc.2" src="https://img.shields.io/badge/protocol-1.0.0--rc.2-244C5A?style=flat-square"></a>
 <a href="https://modelcontextprotocol.io"><img alt="MCP: optional, built in" src="https://img.shields.io/badge/MCP-optional%2C%20built%20in-244C5A?style=flat-square&logo=modelcontextprotocol&logoColor=white"></a>
-<a href="docs/reference/architecture.md#no-c"><img alt="No C, no TLS" src="https://img.shields.io/badge/build-no%20C%2C%20no%20TLS-50ABF1?style=flat-square"></a>
+<a href="docs/reference/architecture.md#no-c"><img alt="Engine: no C" src="https://img.shields.io/badge/engine-no%20C-50ABF1?style=flat-square"></a>
 </p>
 
 <p>
@@ -121,10 +121,14 @@ any domain.
   opaque annotations.
 - **Time first.** Storage, indexing, queries, state at an instant and replay are all
   organised around time.
-- **Pure Rust, no TLS.** No C in any shipped dependency graph, and no C toolchain to
-  build it (`xtask deps` enforces both). The daemon serves local IPC only, so no TLS
-  stack is linked. `unsafe` is denied workspace-wide, with one exception: the
-  owner-only security descriptor for Windows named pipes.
+- **A pure-Rust engine.** Storage, codecs, index, query, state, replay and the write
+  path reach no C, and a plain build of `norn` and `nornctl` needs no C toolchain
+  (`xtask deps` enforces both). The one exception is remote gRPC: its TLS is rustls
+  with `ring`, which has C and assembly, linked into `norn` and `nornctl` only, in
+  release builds and in builds with their `remote` features
+  ([architecture](docs/reference/architecture.md#no-c)). `unsafe` is denied
+  workspace-wide, with one exception: the owner-only security descriptor for Windows
+  named pipes.
 - **Bounded.** Every memory budget and count limit is configured and enforced. When a
   budget runs out, clients are slowed or refused, and nothing is dropped silently.
 
@@ -160,6 +164,8 @@ behind them are in [how Norn works](docs/guides/concepts.md).
 - **Benchmark matrix**: Built. A quick profile runs in CI; the full run has not been made ([performance](docs/performance.md#benchmark-matrix))
 - **Pattern detection, GGML-accelerated**: Planned. Opt-in, outside the engine; scope still to be decided
 - **Further device-protocol adapters**: Planned. As clients of the public API, outside this repository
+- **Disk budget**: Done. `min_free_bytes` and `max_disk_bytes` refuse batches before the disk fills, and admit again when room returns ([storage](docs/reference/storage.md#disk-budget))
+- **Remote gRPC over TLS, with a bearer token**: Done. `[remote]`, off by default; in release builds ([configuration](docs/guides/configuration.md#remote-grpc))
 - **Metrics export**: Not built
 
 ## Installation
@@ -187,6 +193,9 @@ cd norn
 git checkout v1.0.0-rc.2
 cargo build --release --locked -p norn-server -p norn-cli
 ```
+
+Add `--features norn-server/remote` for remote gRPC, as release archives have it;
+that needs a C compiler, for `ring`.
 
 This builds `target/release/norn`, the daemon, and `target/release/nornctl`, the
 client. **Release archives** for Linux, macOS and Windows, each with a `.sha256` file,
@@ -235,8 +244,11 @@ What is built, measured and planned, stage by stage, is in the
   ([operations](docs/guides/operations.md#backup-and-restore)).
 - **Crash tests cover process death** (`kill -9`), not power loss. Every performance
   figure is from macOS; Linux and Windows are tested in CI, not measured.
-- **No disk budget.** A client can write until the disk is full unless a retention
-  policy is set ([review](docs/security/review-2026-11.md), L1).
+- **The disk budget is measured every second.** Norn's own writes stop at
+  `min_free_bytes` exactly, being counted between measurements; another program's
+  writes, and `max_disk_bytes`, are caught at the next measurement. If the disk does fill,
+  nothing acknowledged is lost, but the stream refuses batches until the daemon restarts
+  ([troubleshooting](docs/guides/troubleshooting.md#no-space-left-on-device-then-this-streams-storage-failed)).
 
 ## Security
 
@@ -248,14 +260,16 @@ with findings still open.
 - **Listeners.** By default the daemon serves only an owner-only Unix socket or named
   pipe. `listen = "tcp:..."` and MCP over HTTP have no authentication: once turned on,
   every local user can reach them, and the daemon only warns at start. Use the Unix
-  socket, a named pipe or MCP over stdio instead.
+  socket, a named pipe or MCP over stdio instead. `[remote]` serves gRPC to other
+  machines only over TLS, and refuses any call without its bearer token
+  ([configuration](docs/guides/configuration.md#remote-grpc)).
 - **Encryption at rest** is opt-in and experimental. It covers sample data, not names
   or time ranges ([storage](docs/reference/storage.md#encryption)).
 
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) first. In short: no source file reaches 200
-lines, no C, no new `unsafe`, and `just ci` must pass, including the repository gates.
+lines, no C in the engine, no new `unsafe`, and `just ci` must pass, including the repository gates.
 Every gate fails when it examined nothing, and each has a test proving it bites.
 
 ```sh

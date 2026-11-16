@@ -105,6 +105,26 @@ jobs:
           repo-token: ${{ github.token }}
       - run: just crash
 
+  # A real ENOSPC on a 32 MiB filesystem: a disk image on macOS, a tmpfs on Linux.
+  disk-full:
+    name: Disk full (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: extractions/setup-just@v4
+      - uses: Swatinem/rust-cache@v2
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: "36.2"
+          repo-token: ${{ github.token }}
+      - run: just disk-full
+
   # A baseline holds one machine's numbers, so it only means something from the
   # machine class that compares with it: docs/performance.md says how to make it.
   bench-matrix:

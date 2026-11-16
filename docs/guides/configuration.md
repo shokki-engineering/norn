@@ -66,6 +66,8 @@ max_segment_open_time_ms = 3600000  # 1.0.0-rc.1: wall-clock time a segment may 
 group_commit_interval_ms = 5   # the longest a DURABLE batch waits to share an fsync
 max_chunk_age_ms = 60000       # the longest a sample waits to be encoded into a chunk
 durable_acks = true            # false: no fsync, and DURABLE is refused, not weakened
+max_disk_bytes = 0             # all segments together; 0: no limit
+min_free_bytes = 268435456     # free space the data volume keeps; 0: no floor
 encryption = "off"             # "on" needs key_file or key_env (below)
 ```
 
@@ -89,6 +91,17 @@ and on a clean stop. The open-time limit is what lets a quiet or short-lived str
 reach sealed segments, which compaction, retention and the clean-start marker work on.
 Zero is refused. Maintenance checks every quarter of the value, kept between 10 ms and
 60 s, and does so even with `[maintenance] background = false`.
+
+**Disk budget.** `max_disk_bytes` bounds every stream's stored samples together, as
+encoded and compressed (`stored_bytes`; segment headers and directories are not counted),
+and `min_free_bytes` the free space left on the data directory's volume, whoever uses
+the rest; zero turns either off. Maintenance measures both every second, with
+`[maintenance] background = false` too. Once either is reached, every batch is refused
+with `STORAGE_UNAVAILABLE`, a retry delay of one second and a message naming the
+limit, and admitted again as soon as a measurement finds room; nothing is deleted.
+Within an eighth of a limit the daemon logs a warning. Journals, the index and the
+metadata log are not counted in `max_disk_bytes`; `min_free_bytes` covers them.
+The default floor, 256 MiB, was picked, not measured.
 
 Half of `ipc_bytes` is set aside for HTTP/2 flow-control windows, an equal share
 per client; the other half pays for messages being decoded ([architecture.md](../reference/architecture.md)).
@@ -138,7 +151,8 @@ off; the daemon refuses either rather than mixing them. Rotation is
 [maintenance]
 background = true                      # false: only what a client asks for
 compaction_interval_ms = 300000        # how often compaction looks for work
-retention_interval_ms = 3600000        # how often recorded policies are applied
+retention_interval_ms = 3600000        # how often recorded policies are applied; a size
+                                       # limit is also applied as each segment seals
 max_runs_per_pass = 8                  # the most merges per stream, per pass
 compaction_window = "22:00-06:00"      # UTC; unset means any hour
 ```
@@ -169,6 +183,33 @@ and the daemon only logs a warning at every start. Prefer `stdio`, a `unix:` soc
 (held to the same owner-only directory rule as the gRPC socket) or a `pipe:` name
 (created with an owner-only security descriptor)
 ([security review](../security/review-2026-11.md), F5).
+
+## Remote gRPC
+
+Off by default, and only in a `norn` built with the `remote` feature, which release
+archives and Homebrew have; a build without it refuses the section. The local endpoint
+stays on beside it, unchanged and without a token.
+
+```toml
+[remote]
+listen = "0.0.0.0:7443"                # any address; port 0 picks one
+cert_file = "/etc/norn/tls/cert.pem"   # PEM certificate chain
+key_file = "/etc/norn/tls/key.pem"     # PEM private key
+token_file = "/etc/norn/token"         # the bearer token, owner-only
+max_clients = 16                       # remote connections at once, 1 to 1024
+```
+
+Every call must carry `authorization: Bearer <token>`, or it fails with
+`UNAUTHENTICATED` before it is decoded or charged to any budget. The token is the
+file's contents with surrounding whitespace trimmed: at least 32 bytes of printable
+ASCII without spaces, so `openssl rand -hex 32 > /etc/norn/token` makes one. On Unix
+the file must be mode 0600 or the daemon will not start. TLS is served from the
+certificate and key with rustls; there is no plaintext fallback and no client
+certificate check. The remote listener serves the gRPC API and its health only: no
+MCP, no reflection, and no shared-memory data plane, which needs a local socket.
+`max_clients` adds to `[limits] max_clients`: every connection's flow-control window
+comes from half of `ipc_bytes`, so more remote clients means smaller windows for all.
+[Using Norn from your own code](clients.md#from-another-machine) shows a client.
 
 ## Shared memory
 

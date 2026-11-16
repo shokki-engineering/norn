@@ -15,6 +15,7 @@ mod commit_fail;
 mod cut;
 mod decision;
 mod dedup;
+mod disk;
 #[cfg(feature = "fuzzing")]
 pub mod fuzzing;
 mod indexing;
@@ -24,9 +25,11 @@ mod layout_detail;
 mod lifecycle;
 mod record;
 mod recover;
+mod recover_error;
 mod report;
 mod scan;
 mod seal;
+mod sealed;
 mod setup;
 mod shared;
 mod start;
@@ -38,9 +41,9 @@ mod upkeep;
 pub use admit::THROTTLE_DELAY;
 pub use cut::PendingCut;
 pub use decision::{AckFailure, AckLevel, Admission, Batch, Completion, Decision, Outcome, Reason};
-pub use indexing::RecoverError;
 pub use journal::{JOURNAL_DIR, SyncGate};
 pub use layout::{ChunkColumn, ColumnEncoding, LayoutError, SegmentDetail, SegmentInfo};
+pub use recover_error::RecoverError;
 pub use report::{IndexSummary, IngestRecovery};
 pub use stats::StreamStats;
 
@@ -87,6 +90,10 @@ pub(crate) struct Context {
     pub(crate) cap: u64,
     /// Told of every committed sample; costs nothing with no subscriber.
     pub(crate) live: Arc<Live>,
+    /// Streams that sealed a segment, for maintenance's size limits.
+    pub(crate) sealed: sealed::SealedStreams,
+    /// The daemon-wide disk budget, measured by maintenance.
+    pub(crate) disk: disk::DiskGate,
 }
 
 /// The write path.
@@ -143,6 +150,8 @@ impl Ingest {
             max_open: storage.max_segment_open_time,
             cap,
             live: Arc::new(Live::new(config.limits().max_subscriptions)),
+            sealed: sealed::SealedStreams::default(),
+            disk: disk::DiskGate::new(storage.max_disk_bytes, storage.min_free_bytes),
         };
         Self {
             ctx: Arc::new(ctx),

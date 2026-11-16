@@ -7,9 +7,9 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use norn_ipc::Conn;
 use norn_protocol::admin::admin_service_client::AdminServiceClient;
 use norn_protocol::admin::{Backup, CreateBackupRequest};
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::resources::{call, usage};
@@ -37,7 +37,7 @@ fn default_id() -> String {
 /// Parses the words, starts the backup and waits for it: each poll is one call, so
 /// `--timeout` bounds a poll and not the backup.
 pub(crate) async fn backup(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {

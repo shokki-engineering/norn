@@ -12,11 +12,11 @@
 
 use std::collections::{BTreeMap, HashMap};
 
+use norn_ipc::Conn;
 use norn_protocol::common::Sample;
 use norn_protocol::google::r#type::Interval;
 use norn_protocol::query::query_service_client::QueryServiceClient;
 use norn_protocol::query::{AggregateFunction, Aggregation, QuerySamplesRequest};
-use tonic::transport::Channel;
 
 use crate::{AdapterError, entity_resource, time};
 
@@ -29,7 +29,7 @@ const PER_SIGNAL_QUERIES: usize = 8;
 
 /// Each signal's newest time when the import began. One entry per signal the
 /// daemon holds samples for.
-pub(crate) async fn newest_times(channel: &Channel) -> Result<HashMap<String, i64>, AdapterError> {
+pub(crate) async fn newest_times(channel: &Conn) -> Result<HashMap<String, i64>, AdapterError> {
     let request = QuerySamplesRequest {
         parent: "entities/-".to_owned(),
         aggregation: Some(Aggregation {
@@ -65,7 +65,7 @@ fn key(sample: &Sample) -> Option<(i64, i64)> {
 /// `samples` without those the daemon holds, and how many that was. Holds the
 /// batch's keys; the query's results are read and dropped as they stream.
 pub(crate) async fn without_present(
-    channel: &Channel,
+    channel: &Conn,
     newest: &HashMap<String, i64>,
     samples: Vec<Sample>,
 ) -> Result<(Vec<Sample>, u64), AdapterError> {

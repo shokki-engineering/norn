@@ -597,6 +597,48 @@ A pass logs at `WARN` first, deletes oldest first (a crash leaves an unfinished 
 never a hole), calls `refresh(stream)`, adjusts the stream's totals, and counts the
 removal for `GetServer`. A dry run stops before the log line and changes nothing.
 
+**When a policy runs.** Every policy runs on the `retention_interval_ms` schedule, an
+hour by default. A `MaxBytes` policy also runs each time its stream seals a segment,
+since only size grows with every seal: the store thread marks the stream in a set
+bounded by the number of streams, without waiting on anything, and wakes the worker,
+which applies the limits of every marked stream in one job. A busy stream therefore
+exceeds its limit by about one segment, not by an hour of data. With
+`[maintenance] background = false` a seal applies nothing and the schedule does not
+run either; only a client's `ApplyStreamRetention` does. The worker measures the time
+on its clock after every wake-up, so frequent seals or jobs never hold back sealing by
+age, compaction or the retention schedule.
+
+## Disk budget
+
+Retention is per stream and optional, so on its own nothing stops a daemon filling
+its disk. Two `[storage]` settings bound the whole daemon:
+
+| Setting | Measures | Default |
+| --- | --- | --- |
+| `max_disk_bytes` | every stream's `stored_bytes`, summed: its chunks as encoded and compressed, without segment headers and directories | 0, no limit |
+| `min_free_bytes` | free space on the data directory's volume, from the OS | 256 MiB |
+
+The maintenance worker measures every second on the blocking pool, whether or not
+background passes run, and leaves the verdict where admission reads it: one atomic
+flag per batch, and a message only when refusing. Admission therefore never waits on
+a disk. A spent budget refuses every batch, before any stream's own checks, with
+`BACKPRESSURE_REASON_STORAGE_UNAVAILABLE` and a one-second retry delay. Nothing is
+deleted: a stream's retention policy is what makes room by itself, and an operator
+the rest. The next measurement that finds room admits batches again, with no restart.
+
+Between two measurements admission counts what it admits against the room the last
+one left above `min_free_bytes`, so Norn's own writes stop at the floor however fast
+they come, before the OS returns `ENOSPC`, which fails a stream until restart
+([troubleshooting](../guides/troubleshooting.md)). A batch is counted at its
+in-memory size, more than the journal writes for it, so this errs towards refusing
+early, and the count restarts at every measurement. Only the floor is counted:
+`max_disk_bytes` bounds compressed bytes, a fraction of that, so it is checked by the
+measurements alone and can be passed by a second's writes, as the floor can by
+another program's. Free
+space comes from `fs4::available_space`, which is pure Rust (`rustix` on Unix,
+`windows-sys` on Windows); if the OS cannot say, the floor is not enforced and a
+warning is logged.
+
 ## Clean shutdown
 
 Reading every chunk at every start costs time proportional to all stored data. A

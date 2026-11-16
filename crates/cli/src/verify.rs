@@ -6,9 +6,9 @@
 
 use std::io::Write;
 
+use norn_ipc::Conn;
 use norn_protocol::stream::stream_service_client::StreamServiceClient;
 use norn_protocol::stream::{GetStreamRequest, VerifyStreamRequest, VerifyStreamResponse};
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::resources::{call, usage};
@@ -22,7 +22,7 @@ use crate::upkeep::{finish, stream_name};
 /// stream holds samples yet nothing was read: a check that examined nothing
 /// has checked nothing.
 pub(crate) async fn verify(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {

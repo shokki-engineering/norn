@@ -5,9 +5,9 @@
 
 use std::io::Write;
 
+use norn_ipc::Conn;
 use norn_protocol::state::ComputeStateRequest;
 use norn_protocol::state::state_service_client::StateServiceClient;
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::query::{print_sample, selection, timestamp, window};
@@ -40,7 +40,7 @@ fn request(words: &[&str]) -> Result<ComputeStateRequest, CliError> {
 
 /// Prints the state at an instant: `SIGNAL unknown` for a signal with none.
 pub(crate) async fn state(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {

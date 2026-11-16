@@ -5,9 +5,12 @@
 //! do not earn a parser dependency).
 
 use std::ffi::OsString;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use norn_ipc::Endpoint;
+
+use crate::Remote;
 
 mod usage;
 
@@ -21,6 +24,8 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 pub struct Args {
     /// Where the daemon listens.
     pub endpoint: Endpoint,
+    /// A daemon's `[remote]` listener to use instead of `endpoint`.
+    pub remote: Option<Remote>,
     /// The bound on connecting and on each call.
     pub timeout: Duration,
     /// What to do.
@@ -54,6 +59,7 @@ pub enum Command {
 /// malformed endpoint or timeout, or no command at all.
 pub fn parse<I: IntoIterator<Item = OsString>>(args: I) -> Result<Args, String> {
     let mut endpoint = None;
+    let (mut remote, mut token_file, mut ca_file) = (None, None, None);
     let mut timeout = DEFAULT_TIMEOUT;
     let mut command = None;
     let mut args = args.into_iter();
@@ -72,6 +78,9 @@ pub fn parse<I: IntoIterator<Item = OsString>>(args: I) -> Result<Args, String> 
                 let text = value("--endpoint")?;
                 endpoint = Some(text.parse().map_err(|e| format!("--endpoint: {e}"))?);
             }
+            "--remote" => remote = Some(value("--remote")?),
+            "--token-file" => token_file = Some(PathBuf::from(value("--token-file")?)),
+            "--ca-file" => ca_file = Some(PathBuf::from(value("--ca-file")?)),
             "--timeout" => {
                 let secs: f64 = value("--timeout")?
                     .parse()
@@ -108,8 +117,23 @@ pub fn parse<I: IntoIterator<Item = OsString>>(args: I) -> Result<Args, String> 
         }
     }
     let command = command.ok_or_else(|| "no command given".to_owned())?;
+    let remote = match (remote, token_file) {
+        (Some(_), _) if endpoint.is_some() => {
+            return Err("--remote and --endpoint name two daemons; give one".to_owned());
+        }
+        (Some(address), Some(token_file)) => Some(Remote {
+            address,
+            token_file,
+            ca_file,
+        }),
+        (Some(_), None) => return Err("--remote needs --token-file".to_owned()),
+        (None, Some(_)) => return Err("--token-file needs --remote".to_owned()),
+        (None, None) if ca_file.is_some() => return Err("--ca-file needs --remote".to_owned()),
+        (None, None) => None,
+    };
     Ok(Args {
         endpoint: endpoint.unwrap_or_else(Endpoint::platform_default),
+        remote,
         timeout,
         command,
     })

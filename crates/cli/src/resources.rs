@@ -5,6 +5,7 @@
 
 use std::io::Write;
 
+use norn_ipc::Conn;
 use norn_protocol::common::ValueType;
 use norn_protocol::entity::entity_service_client::EntityServiceClient;
 use norn_protocol::entity::{CreateEntityRequest, Entity, ListEntitiesRequest};
@@ -12,7 +13,6 @@ use norn_protocol::signal::signal_service_client::SignalServiceClient;
 use norn_protocol::signal::{CreateSignalRequest, ListSignalsRequest, Signal};
 use norn_protocol::stream::stream_service_client::StreamServiceClient;
 use norn_protocol::stream::{CreateStreamRequest, ListStreamsRequest, Stream};
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::append::{append, value_type};
@@ -41,7 +41,7 @@ pub(crate) fn usage(text: &str) -> CliError {
 /// # Errors
 /// [`CliError::Usage`]; [`CliError::Call`] with the daemon's reason;
 /// [`CliError::Refused`] for a rejected batch; [`CliError::Output`].
-pub async fn run(channel: Channel, words: &[String], out: &mut impl Write) -> Result<(), CliError> {
+pub async fn run(channel: Conn, words: &[String], out: &mut impl Write) -> Result<(), CliError> {
     let words: Vec<&str> = words.iter().map(String::as_str).collect();
     match words.as_slice() {
         ["state", rest @ ..] => state(channel, rest, out).await,
@@ -107,7 +107,7 @@ pub async fn run(channel: Channel, words: &[String], out: &mut impl Write) -> Re
     }
 }
 
-async fn list_streams(channel: Channel, out: &mut impl Write) -> Result<(), CliError> {
+async fn list_streams(channel: Conn, out: &mut impl Write) -> Result<(), CliError> {
     let mut client = StreamServiceClient::new(channel);
     let mut page_token = String::new();
     loop {
@@ -137,7 +137,7 @@ async fn list_streams(channel: Channel, out: &mut impl Write) -> Result<(), CliE
     }
 }
 
-async fn list_entities(channel: Channel, out: &mut impl Write) -> Result<(), CliError> {
+async fn list_entities(channel: Conn, out: &mut impl Write) -> Result<(), CliError> {
     let mut client = EntityServiceClient::new(channel);
     let mut page_token = String::new();
     loop {
@@ -159,11 +159,7 @@ async fn list_entities(channel: Channel, out: &mut impl Write) -> Result<(), Cli
     }
 }
 
-async fn list_signals(
-    channel: Channel,
-    parent: &str,
-    out: &mut impl Write,
-) -> Result<(), CliError> {
+async fn list_signals(channel: Conn, parent: &str, out: &mut impl Write) -> Result<(), CliError> {
     let mut client = SignalServiceClient::new(channel);
     let mut page_token = String::new();
     loop {

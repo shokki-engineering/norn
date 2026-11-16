@@ -15,10 +15,11 @@ const MIB: u64 = 1024 * 1024;
 /// `Default` (picked, not measured; stage 15 revisits them): segments roll at
 /// 256 MiB or one hour of sample time, and are sealed after one hour open
 /// whatever they hold; group commit waits at most 5 ms for company; a chunk's
-/// samples wait in memory at most 60 s; durable acknowledgements are offered.
+/// samples wait in memory at most 60 s; durable acknowledgements are offered;
+/// segments may take any space, and 256 MiB of the volume stays free.
 ///
 /// Invariant (checked by [`crate::ConfigBuilder::build`]): every size and
-/// duration is non-zero. `durable_acks` is a choice, not a size: `false` means
+/// duration is non-zero, except the two disk limits, where zero turns one off. `durable_acks` is a choice, not a size: `false` means
 /// the daemon has no durability boundary, offers no `CAPABILITY_ACK_DURABLE`,
 /// and refuses a batch requesting `DURABLE` rather than acknowledge it at a
 /// weaker level (docs/reference/protocol.md).
@@ -45,6 +46,13 @@ pub struct StorageConfig {
     pub max_chunk_age: Duration,
     /// Whether the daemon offers `DURABLE`, that is, whether it fsyncs.
     pub durable_acks: bool,
+    /// The most bytes every stream's stored samples may take together, encoded
+    /// and compressed; past it every batch is refused, and nothing is deleted.
+    /// Segment headers and directories are not counted. Zero means no limit.
+    pub max_disk_bytes: u64,
+    /// The free space the data directory's volume must keep, whoever uses the
+    /// rest; at or below it every batch is refused. Zero means no floor.
+    pub min_free_bytes: u64,
 }
 
 impl StorageConfig {
@@ -75,6 +83,8 @@ impl Default for StorageConfig {
             group_commit_interval: Duration::from_millis(5),
             max_chunk_age: Duration::from_secs(60),
             durable_acks: true,
+            max_disk_bytes: 0,
+            min_free_bytes: 256 * MIB,
         }
     }
 }

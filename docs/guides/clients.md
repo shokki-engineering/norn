@@ -59,6 +59,32 @@ semantics of every method, error and acknowledgement level:
 [protocol](../reference/protocol.md). Endpoints and the security model:
 [IPC](../reference/ipc.md).
 
+## From another machine
+
+With `[remote]` configured ([configuration](configuration.md#remote-grpc)), any gRPC
+client that speaks TLS can connect, sending the token as `authorization: Bearer
+<token>` on every call. With grpcurl, which has no reflection to use here, give it the
+schema:
+
+```console
+$ grpcurl -cacert ca.pem -H "authorization: Bearer $(cat token)" \
+    -import-path protobuf -proto norn/admin/v1/admin_service.proto \
+    -d '{"name": "server"}' norn.example.net:7443 norn.admin.v1.AdminService/GetServer
+```
+
+A call without the token, or with a wrong one, fails with `UNAUTHENTICATED`.
+`nornctl` connects the same way, and every command works over it:
+
+```console
+$ nornctl --remote norn.example.net:7443 --token-file ~/.config/norn/token status
+```
+
+Add `--ca-file ca.pem` when the certificate is from a private CA
+([nornctl](../reference/cli.md#connecting)). A Rust client can do what `nornctl` does:
+`norn_ipc::Conn::new(channel, Credentials::bearer(token))` over a tonic TLS channel
+sends the token on every call, and every generated client, `AppendCall` and the
+adapters' `export` and `import` take a `Conn`.
+
 ## nornctl
 
 `nornctl` uses only the public API; it has no private door. The one exception is

@@ -12,6 +12,7 @@ mod query;
 
 use std::io::Write;
 
+use norn_ipc::Conn;
 use norn_protocol::common::ValueType;
 use norn_protocol::entity::entity_service_client::EntityServiceClient;
 use norn_protocol::entity::{CreateEntityRequest, Entity};
@@ -20,7 +21,6 @@ use norn_protocol::signal::{CreateSignalRequest, Signal};
 use norn_protocol::stream::stream_service_client::StreamServiceClient;
 use norn_protocol::stream::{CreateStreamRequest, GetStreamRequest, Stream};
 use tonic::Code;
-use tonic::transport::Channel;
 
 use self::append::append;
 use self::batch::{batch_size, limits};
@@ -31,7 +31,7 @@ use crate::resources::call;
 
 /// Creates what `plan` needs. Reads the stream first and creates nothing if it
 /// is refused.
-async fn prepare(channel: &Channel, plan: &Plan) -> Result<(), CliError> {
+async fn prepare(channel: &Conn, plan: &Plan) -> Result<(), CliError> {
     let name = format!("streams/{}", plan.stream);
     let mut streams = StreamServiceClient::new(channel.clone());
     match streams
@@ -99,7 +99,7 @@ fn tolerate_existing<T>(
 
 /// `nornctl benchmark`.
 pub(crate) async fn benchmark(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {

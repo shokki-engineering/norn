@@ -109,6 +109,11 @@ impl Ingest {
                 return Admission::rejected(decision);
             }
         };
+        // Last of the refusals, so only an admitted batch is counted against the
+        // disk, and before dedup, so a refused batch's samples stay new for a retry.
+        if let Some(refused) = self.disk_refusal(cost) {
+            return refused;
+        }
         let Batch {
             mut samples, level, ..
         } = batch;

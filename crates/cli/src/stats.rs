@@ -7,6 +7,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::io::Write;
 
+use norn_ipc::Conn;
 use norn_protocol::google::r#type::Interval;
 use norn_protocol::query::ComputeStatsRequest;
 use norn_protocol::query::query_service_client::QueryServiceClient;
@@ -15,7 +16,6 @@ use norn_protocol::signal::signal_service_client::SignalServiceClient;
 use norn_protocol::stream::GetStreamRequest;
 use norn_protocol::stream::stream_service_client::StreamServiceClient;
 use prost_types::Timestamp;
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::query::{selection, timestamp};
@@ -30,7 +30,7 @@ fn seconds(from: Timestamp, to: Timestamp) -> f64 {
 
 /// Which stream each selected signal belongs to.
 async fn streams_of(
-    channel: Channel,
+    channel: Conn,
     parent: &str,
     filter: &str,
 ) -> Result<HashMap<String, String>, CliError> {
@@ -58,7 +58,7 @@ async fn streams_of(
 /// `nornctl stats [TARGET] [--from T] [--to T]`: TARGET as in `query`, default
 /// `all`; the window defaults to the last hour.
 pub(crate) async fn stats(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {

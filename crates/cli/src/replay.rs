@@ -5,6 +5,7 @@
 
 use std::io::Write;
 
+use norn_ipc::Conn;
 use norn_protocol::google::r#type::Interval;
 use norn_protocol::replay::replay_service_client::ReplayServiceClient;
 use norn_protocol::replay::step_replay_session_request::Step;
@@ -14,7 +15,6 @@ use norn_protocol::replay::{
     ResumeReplaySessionRequest, SeekReplaySessionRequest, StepReplaySessionRequest,
     StopReplaySessionRequest, UpdateReplaySessionRequest,
 };
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::query::{selection, timestamp, window};
@@ -64,7 +64,7 @@ fn step(word: &str) -> Result<Step, CliError> {
 
 /// Runs a `replay` command and prints the session after it.
 pub(crate) async fn replay(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {

@@ -5,11 +5,11 @@
 
 use std::io::Write;
 
+use norn_ipc::Conn;
 use norn_protocol::replay::ResumeReplaySessionRequest;
 use norn_protocol::replay::replay_service_client::ReplayServiceClient;
 use norn_protocol::telemetry::telemetry_service_client::TelemetryServiceClient;
 use norn_protocol::telemetry::{ClockEventKind, SubscribeEventsRequest, SubscriptionMode, event};
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::query::{print_sample, selection};
@@ -64,7 +64,7 @@ fn request(words: &[&str]) -> Result<(SubscribeEventsRequest, bool, Option<i64>)
 /// line has nothing to seek with, so it stops there. A state
 /// sample after a seek prints as `state` and the sample.
 pub(crate) async fn subscribe(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {

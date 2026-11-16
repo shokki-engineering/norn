@@ -5,10 +5,10 @@
 
 use std::io::Write;
 
+use norn_ipc::Conn;
 use norn_protocol::stream::retention_policy::Limit;
 use norn_protocol::stream::stream_service_client::StreamServiceClient;
 use norn_protocol::stream::{GetStreamRequest, RetentionPolicy, Stream, UpdateStreamRequest};
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::query::window;
@@ -44,7 +44,7 @@ fn show(policy: Option<&RetentionPolicy>) -> String {
 
 /// Runs a `retention` subcommand.
 pub(crate) async fn retention(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {

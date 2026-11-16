@@ -7,11 +7,11 @@
 use std::io::Write;
 use std::time::{Duration, Instant};
 
+use norn_ipc::Conn;
 use norn_protocol::google::r#type::Interval;
 use norn_protocol::query::QuerySamplesRequest;
 use norn_protocol::query::query_service_client::QueryServiceClient;
 use prost_types::Timestamp;
-use tonic::transport::Channel;
 
 use super::batch::now_nanos;
 use super::plan::Plan;
@@ -26,7 +26,7 @@ pub(super) fn percentile(sorted: &[Duration], percent: usize) -> f64 {
 
 /// Runs `plan.queries` reads of everything appended since `first`.
 pub(super) async fn query(
-    channel: &Channel,
+    channel: &Conn,
     plan: &Plan,
     first: i128,
     out: &mut impl Write,

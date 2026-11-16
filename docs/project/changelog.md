@@ -5,6 +5,63 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Changelog
 
+## Unreleased
+
+### Remote gRPC
+
+- `[remote]` serves the gRPC API to other machines: a second server beside the local
+  endpoint, over the same database, with TLS from a configured certificate and key, and
+  a bearer token every call must present (`UNAUTHENTICATED` otherwise, checked before
+  decoding or any budget). The token file must be owner-only and at least 32 bytes. No
+  MCP, reflection or shared memory there. `max_clients` (default 16) adds to the local
+  limit when flow-control windows are sized ([configuration](../guides/configuration.md#remote-grpc)).
+- Behind `norn-server`'s `remote` feature, which release builds turn on. Its TLS is
+  rustls with `ring`, C and assembly, linked into `norn` only; the engine stays pure Rust.
+  `xtask deps` now examines the graph with the release features on
+  ([architecture](../reference/architecture.md#no-c)).
+- `nornctl --remote HOST:PORT --token-file PATH [--ca-file PATH]` reaches a `[remote]`
+  listener over TLS; every command works there. Behind `norn-cli`'s `remote` feature,
+  on in release builds ([nornctl](../reference/cli.md#connecting)).
+- `norn_ipc::Conn`: a channel with the credentials each call presents. `AppendCall::open`
+  and the adapters' `export` and `import` take `impl Into<Conn>`, so a `Channel` still
+  works and a remote client passes its token.
+- A daemon built without the `remote` feature refuses a `[remote]` set in code
+  (`DaemonError::RemoteUnsupported`), as it already refused one in a file.
+
+### Fixes
+
+- `rmcp` at least 3.9: before 3.9 its HTTP clients read a response body with no
+  bound (RUSTSEC-2026-0462). Norn uses those clients only in tests.
+- Two clippy warnings that failed `just lint` under `-D warnings`.
+
+### Disk use
+
+- A daemon-wide disk budget, closing security review L1. `[storage] min_free_bytes`
+  (256 MiB by default) keeps free space on the data volume, and `max_disk_bytes` (off by
+  default) bounds every stream's segments together. Measured every second, also with
+  background maintenance off; between measurements admission counts its own writes
+  against the room left above the floor, so a fast writer stops at it rather than at
+  `ENOSPC`. Once either is reached every batch is refused with
+  `STORAGE_UNAVAILABLE` and a one-second retry delay; batches are admitted again as soon
+  as there is room, with no restart. Nothing is deleted. Free space is read through
+  `fs4`, pure Rust ([storage](../reference/storage.md#disk-budget)).
+- **Behaviour change:** a daemon on a volume with 256 MiB or less free now refuses
+  batches. Set `min_free_bytes = 0` for the old behaviour.
+- A stream's size limit (`RetentionPolicy.max_bytes`) is applied each time the stream
+  seals a segment, not only on the `retention_interval_ms` schedule, an hour by
+  default. A busy stream now exceeds its limit by about one segment, not by an hour of
+  data. Age and month limits still run on the schedule. Nothing runs on a seal with
+  `[maintenance] background = false`
+  ([storage](../reference/storage.md#retention)).
+- The maintenance worker measures elapsed time on its clock after every wake-up. Before,
+  a client job ended its wait without counting the time towards the schedule, so a
+  steady stream of jobs could postpone sealing by age, compaction and retention.
+- A full disk is tested on a real 32 MiB filesystem, a disk image on macOS and a tmpfs
+  on Linux (`just disk-full`, and a CI job on both). Every sample acknowledged `DURABLE`
+  survives, none is stored twice, and ingest resumes after space is freed and the
+  daemon restarted. Until a restart the stream refuses every batch
+  ([troubleshooting](../guides/troubleshooting.md)).
+
 ## 1.0.0-rc.2
 
 Release title: `norn v1.0.0-rc.2`. All workspace crates, including `norn-protocol`,

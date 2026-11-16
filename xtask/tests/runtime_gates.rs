@@ -91,7 +91,13 @@ fn this_repositorys_engine_crates_stay_free_of_all_of_it() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap();
-    let g = xtask::metadata::load_for(root, deps::PLATFORMS).unwrap();
+    let g = xtask::metadata::load_shipped(root, deps::PLATFORMS, deps::RELEASE_FEATURES).unwrap();
+    // The release graph turns on norn-server's `remote`, so ring is really there.
+    let server = xtask::runtime_rs::closure_avoiding(&g, "norn-server", &[]);
+    assert!(
+        server.contains("ring"),
+        "the shipped graph must hold `remote`'s ring"
+    );
     let forbidden = ["ring", "rustls", "tpp-grpc", "tpp-agents", "opentelemetry"];
     for engine in xtask::runtime_rs::ENGINE {
         let reached = xtask::runtime_rs::closure_avoiding(&g, engine, &[]);
@@ -100,4 +106,28 @@ fn this_repositorys_engine_crates_stay_free_of_all_of_it() {
             assert!(!reached.contains(name), "{engine} reaches {name}");
         }
     }
+}
+
+#[test]
+fn the_gate_examines_the_features_releases_turn_on() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap();
+    let justfile = std::fs::read_to_string(root.join("justfile")).unwrap();
+    let recipe = justfile
+        .lines()
+        .skip_while(|l| !l.starts_with("release-build"))
+        .nth(1)
+        .expect("the justfile has a release-build recipe");
+    let named: Vec<&str> = recipe
+        .split_whitespace()
+        .skip_while(|w| *w != "--features")
+        .nth(1)
+        .map(|list| list.split(',').collect())
+        .unwrap_or_default();
+    assert_eq!(
+        named,
+        deps::RELEASE_FEATURES,
+        "release-build and deps::RELEASE_FEATURES differ"
+    );
 }

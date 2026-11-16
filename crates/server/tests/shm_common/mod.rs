@@ -49,6 +49,7 @@ pub async fn start_with(config: DaemonConfig, data: PathBuf, socket: &Path) -> R
         .unwrap();
     Running {
         channel,
+        remote: None,
         cancel,
         task,
         data,

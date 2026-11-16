@@ -5,12 +5,12 @@
 
 use std::io::Write;
 
+use norn_ipc::Conn;
 use norn_ipc::{AppendCall, DataPlaneKind};
 use norn_protocol::common::value::Kind;
 use norn_protocol::common::{EnumValue, Quality, QualitySeverity, Sample, Value, ValueType};
 use norn_protocol::signal::signal_service_client::SignalServiceClient;
 use norn_protocol::telemetry::{AcknowledgementLevel, AppendSamplesRequest, BackpressureOutcome};
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::resources::{call, usage};
@@ -60,7 +60,7 @@ fn parse_value(text: &str, kind: ValueType) -> Result<Value, CliError> {
 }
 
 pub(crate) async fn append(
-    channel: Channel,
+    channel: Conn,
     stream: &str,
     signal: &str,
     value: &str,

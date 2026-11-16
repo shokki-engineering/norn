@@ -7,6 +7,7 @@
 use std::io::Write;
 use std::time::Duration;
 
+use norn_ipc::Conn;
 use norn_protocol::google::longrunning::operations_client::OperationsClient;
 use norn_protocol::google::longrunning::{GetOperationRequest, Operation, operation};
 use norn_protocol::stream::stream_service_client::StreamServiceClient;
@@ -14,7 +15,6 @@ use norn_protocol::stream::{
     ApplyStreamRetentionRequest, ApplyStreamRetentionResponse, CompactStreamRequest,
     CompactStreamResponse,
 };
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::resources::{call, usage};
@@ -35,7 +35,7 @@ pub(crate) fn stream_name(name: &str) -> String {
 
 /// Polls `op` until it is done, then decodes its response.
 pub(crate) async fn finish<M: prost::Name + Default>(
-    channel: Channel,
+    channel: Conn,
     op: Operation,
 ) -> Result<M, CliError> {
     let mut client = OperationsClient::new(channel);
@@ -70,7 +70,7 @@ pub(crate) async fn finish<M: prost::Name + Default>(
 
 /// `nornctl compact STREAM`: waits for the whole stream, and prints what changed.
 pub(crate) async fn compact(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {
@@ -112,7 +112,7 @@ pub(crate) async fn compact(
 
 /// `nornctl retention apply STREAM [--dry-run]`.
 pub(crate) async fn apply(
-    channel: Channel,
+    channel: Conn,
     name: String,
     dry_run: bool,
     out: &mut impl Write,
