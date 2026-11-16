@@ -49,6 +49,22 @@ message Stream {
 
   // Changes whenever the stream's settings do (AIP-154).
   string etag = 8 [(google.api.field_behavior) = OPTIONAL];
+
+  // A hard limit on what the stream holds, enforced as batches arrive. Unset
+  // means none. Since protocol 1.9.
+  StorageQuota quota = 9 [(google.api.field_behavior) = OPTIONAL];
+}
+
+// A hard limit on a stream's stored bytes. Once they reach it, every batch for
+// the stream is refused with BACKPRESSURE_REASON_QUOTA_EXCEEDED, and nothing is
+// deleted: removing data is a retention policy's work or an operator's. To bound
+// a stream by removing its oldest data instead, use `RetentionPolicy.max_bytes`;
+// with both, the quota must be above that size, or retention could never act.
+message StorageQuota {
+  // Stored bytes, as `StreamStats.stored_bytes` counts them. Samples admitted
+  // and not yet stored are not counted, so the stream can pass this by what its
+  // write buffers hold when it is reached. Must be positive.
+  int64 max_bytes = 1 [(google.api.field_behavior) = REQUIRED];
 }
 
 // When history becomes eligible for removal (SPEC section 43). Retention is

@@ -56,6 +56,7 @@ pub async fn run(channel: Conn, words: &[String], out: &mut impl Write) -> Resul
         ["verify", rest @ ..] => verify(channel, rest, out).await,
         ["backup", rest @ ..] => crate::backup::backup(channel, rest, out).await,
         ["retention", rest @ ..] => retention(channel, rest, out).await,
+        ["quota", rest @ ..] => crate::quota::run(channel, rest, out).await,
         ["streams"] => list_streams(channel, out).await,
         ["streams", "create", id] => {
             let request = CreateStreamRequest {

@@ -57,6 +57,10 @@ impl Ingest {
             taken.unwrap_or_else(|| (Dedup::new(&self.ctx.budget), StreamStats::default()));
         let buffers = Buffers::new(&self.ctx.opts);
         let shared = Arc::new(Shared::new(stream, stats, buffers));
+        let quota = (self.ctx.registry.stream_name(stream))
+            .and_then(|name| self.ctx.registry.stream(&name).ok())
+            .and_then(|record| record.quota);
+        shared.quota.store(quota.unwrap_or(0), Ordering::Release);
         let tx = self.start(&shared)?;
         let gate = Mutex::new(Gate {
             dedup,

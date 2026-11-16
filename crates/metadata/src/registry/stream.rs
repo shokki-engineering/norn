@@ -14,7 +14,7 @@ use super::{Registry, Write};
 use crate::error::{MetadataError, ResourceKind};
 use crate::op::Op;
 use crate::record::StreamRecord;
-use crate::resource::{check_display_name, check_resource_id};
+use crate::resource::{check_display_name, check_quota, check_resource_id};
 
 fn not_found(id: &str) -> MetadataError {
     MetadataError::NotFound {
@@ -57,10 +57,12 @@ impl Registry {
         })?;
         let mut descriptor = StreamDescriptor::new(StreamId::new(st.peek_id(2)), name);
         descriptor.metadata = spec.annotations;
+        check_quota(spec.retention, spec.quota)?;
         let record = StreamRecord {
             descriptor,
             display_name: spec.display_name,
             retention: spec.retention,
+            quota: spec.quota,
             create_time: now,
             update_time: now,
             revision: 1,
@@ -132,6 +134,10 @@ impl Registry {
         if let Some(annotations) = patch.annotations {
             record.descriptor.metadata = annotations;
         }
+        if let Some(quota) = patch.quota {
+            record.quota = quota;
+        }
+        check_quota(record.retention, record.quota)?;
         record.update_time = now;
         record.revision = record.revision.saturating_add(1);
         if write == Write::ValidateOnly {

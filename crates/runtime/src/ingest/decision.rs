@@ -52,6 +52,7 @@ pub enum Reason {
     StorageUnavailable,
     BatchTooLarge,
     AckLevelUnavailable,
+    QuotaExceeded,
 }
 
 /// An admission decision, always with a reason.

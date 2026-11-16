@@ -279,6 +279,13 @@ sends nothing. With `--timing` or `--shared-memory`, a second line follows:
 [import and export guide](../guides/import-export.md) has real output, and
 [adapters](adapters.md) has the formats.
 
+## quota
+
+`quota get STREAM` prints a stream's hard quota, `max_bytes=N` or `none`. `quota set
+STREAM Nb` sets it to N bytes, and `quota set STREAM none` removes it. Batches for a
+stream at its quota fail with `QUOTA_EXCEEDED`; nothing is deleted
+([operations](../guides/operations.md#quotas)).
+
 ## inspect
 
 How a stream's history sits on disk, through `StreamService.ListSegments` and

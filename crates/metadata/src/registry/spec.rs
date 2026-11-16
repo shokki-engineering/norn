@@ -64,17 +64,27 @@ pub struct StreamSpec {
     pub retention: Retention,
     /// Annotations, built with [`Registry::metadata_limits`].
     pub annotations: Metadata,
+    /// A hard limit on stored bytes; `None` for none.
+    pub quota: Option<u64>,
 }
 
 impl StreamSpec {
-    /// A spec from its parts.
+    /// A spec from its parts, with no quota.
     #[must_use]
     pub fn new(display_name: String, retention: Retention, annotations: Metadata) -> Self {
         Self {
             display_name,
             retention,
             annotations,
+            quota: None,
         }
+    }
+
+    /// Sets the quota.
+    #[must_use]
+    pub fn quota(mut self, quota: Option<u64>) -> Self {
+        self.quota = quota;
+        self
     }
 }
 
@@ -88,9 +98,18 @@ pub struct StreamPatch {
     pub retention: Option<Retention>,
     /// New annotations, replacing all of them.
     pub annotations: Option<Metadata>,
+    /// A new quota: `Some(None)` removes it.
+    pub quota: Option<Option<u64>>,
 }
 
 impl StreamPatch {
+    /// Sets the quota to `quota`, or removes it with `None`.
+    #[must_use]
+    pub fn quota(mut self, quota: Option<u64>) -> Self {
+        self.quota = Some(quota);
+        self
+    }
+
     /// A patch from its parts.
     #[must_use]
     pub fn new(
@@ -102,6 +121,7 @@ impl StreamPatch {
             display_name,
             retention,
             annotations,
+            quota: None,
         }
     }
 }

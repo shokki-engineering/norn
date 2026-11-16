@@ -90,6 +90,9 @@ impl Ingest {
             let decision = Decision::reject(Reason::BatchTooLarge, None, message);
             return Admission::rejected(decision);
         }
+        if let Some(refused) = super::quota::refusal(shared) {
+            return refused;
+        }
         let queued = shared.queued.load(Ordering::Acquire);
         if held.saturating_add(cost) > cap || queued >= QUEUE_BATCHES {
             let message = format!("{held} bytes and {queued} batches are waiting");

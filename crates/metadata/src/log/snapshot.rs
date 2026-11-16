@@ -4,21 +4,21 @@
 //! Writing a whole log from a list of records, and reading one without
 //! changing it: the halves a backup and an offline check need.
 
-use std::fs::{self, File};
-use std::io::{BufWriter, Write};
+use std::fs::{self, File, OpenOptions};
+use std::io::{BufWriter, Seek, SeekFrom, Write};
 use std::path::Path;
 
-use super::{frame, io, replay};
+use super::{Log, frame, io, replay, sync_parent, upgrade};
 use crate::error::MetadataError;
 use crate::op::Op;
 
-/// Writes a log holding exactly `ops` at `path`, at this build's version,
+/// Writes a log holding exactly `ops` at `path`, at the lowest version they need,
 /// replacing any file there, and fsyncs it. The file's name is not made
 /// durable: the caller renames it into place and syncs that directory.
 pub(crate) fn write_log(path: &Path, ops: &[Op]) -> Result<File, MetadataError> {
     let f = File::create(path).map_err(io("create", path))?;
     let mut out = BufWriter::new(f);
-    out.write_all(&replay::header())
+    out.write_all(&replay::header_of(upgrade::needed(ops)))
         .map_err(io("write", path))?;
     let mut buf = Vec::new();
     for op in ops {
@@ -33,6 +33,27 @@ pub(crate) fn write_log(path: &Path, ops: &[Op]) -> Result<File, MetadataError> 
     Ok(f)
 }
 
+impl Log {
+    /// Replaces the log with `ops`: write beside it, fsync, rename, fsync the
+    /// directory. A crash leaves the old log or the new one, never a mix.
+    pub(crate) fn rewrite(&mut self, ops: &[Op]) -> Result<(), MetadataError> {
+        let tmp = self.path.with_extension("log.tmp");
+        drop(write_log(&tmp, ops)?);
+        fs::rename(&tmp, &self.path).map_err(io("rename", &self.path))?;
+        sync_parent(&self.path)?;
+        let mut file = OpenOptions::new()
+            .write(true)
+            .open(&self.path)
+            .map_err(io("open", &self.path))?;
+        file.seek(SeekFrom::End(0))
+            .map_err(io("seek", &self.path))?;
+        self.file = file;
+        self.records = ops.len() as u64;
+        self.version = upgrade::needed(ops);
+        Ok(())
+    }
+}
+
 /// What [`inspect_log`] found.
 ///
 /// Concurrency: owned plain data.
@@ -41,7 +62,7 @@ pub(crate) fn write_log(path: &Path, ops: &[Op]) -> Result<File, MetadataError> 
 pub struct LogInspection {
     /// Records that replay, batch markers included.
     pub records: u64,
-    /// The header's version: 1 or 2 (docs/reference/compatibility.md).
+    /// The header's version: 1, 2 or 3 (docs/reference/compatibility.md).
     pub version: u32,
     /// Bytes after the last whole record: a torn, unacknowledged write. Opening
     /// the log would cut them into a side file; this only counts them.

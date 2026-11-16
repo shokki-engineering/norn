@@ -106,6 +106,9 @@ pub enum BackpressureReason {
     /// REJECT, permanent: the requested acknowledgement level is one this
     /// daemon does not offer, such as DURABLE with durability disabled.
     AckLevelUnavailable = 12,
+    /// REJECT, until data is removed or the quota raised: the stream is at its
+    /// `Stream.quota`. Since protocol 1.9.
+    QuotaExceeded = 13,
 }
 impl BackpressureReason {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -127,6 +130,7 @@ impl BackpressureReason {
             Self::BatchTooLarge => "BACKPRESSURE_REASON_BATCH_TOO_LARGE",
             Self::InvalidSamples => "BACKPRESSURE_REASON_INVALID_SAMPLES",
             Self::AckLevelUnavailable => "BACKPRESSURE_REASON_ACK_LEVEL_UNAVAILABLE",
+            Self::QuotaExceeded => "BACKPRESSURE_REASON_QUOTA_EXCEEDED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -145,6 +149,7 @@ impl BackpressureReason {
             "BACKPRESSURE_REASON_BATCH_TOO_LARGE" => Some(Self::BatchTooLarge),
             "BACKPRESSURE_REASON_INVALID_SAMPLES" => Some(Self::InvalidSamples),
             "BACKPRESSURE_REASON_ACK_LEVEL_UNAVAILABLE" => Some(Self::AckLevelUnavailable),
+            "BACKPRESSURE_REASON_QUOTA_EXCEEDED" => Some(Self::QuotaExceeded),
             _ => None,
         }
     }

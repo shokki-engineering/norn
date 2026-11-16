@@ -258,6 +258,31 @@ WARN retention removed segments stream=1 segments=1
 `status` counts since the daemon started and lists the last 16 removals. The log is
 the lasting record: keep it.
 
+## Quotas
+
+A quota is a hard limit on what a stream stores, and the opposite of a size policy:
+retention makes room by deleting the oldest segments, a quota refuses new batches and
+deletes nothing.
+
+```console
+$ nornctl quota set plant 10000000000b
+streams/plant max_bytes=10000000000
+$ nornctl quota get plant
+streams/plant max_bytes=10000000000
+$ nornctl quota set plant none
+streams/plant none
+```
+
+Once the stream's stored bytes reach the quota, every batch for it is refused with
+`BACKPRESSURE_REASON_QUOTA_EXCEEDED`, and the client sees `RESOURCE_EXHAUSTED`. Raise
+the quota, remove it, or let retention or `retention apply` remove data, and the next
+batch is admitted, without a restart. Only stored bytes count, so a stream can pass its
+quota by what its write buffers hold when it is reached. With both, the quota must be
+above `retention.max_bytes`, or retention could never make room: such a quota is
+refused. A quota costs nothing on a stream without one, and one comparison per batch
+on a stream with one. Setting the first quota moves the metadata log to version 3, which
+a 1.0.0-rc.2 build does not open ([compatibility](../reference/compatibility.md)).
+
 ## Backup and restore
 
 `nornctl backup` copies the database while the daemon runs and ingests:

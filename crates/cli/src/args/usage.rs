@@ -79,6 +79,9 @@ commands:
   retention apply STREAM [--dry-run]
                               run the policy now; --dry-run removes nothing and
                               lists what would go
+  quota get STREAM            a stream's hard quota, if any
+  quota set STREAM Nb|none    refuse batches once the stream stores N bytes, or
+                              stop; N must be above a size retention
   inspect STREAM [SEGMENT] [--basic]
                               how it sits on disk: segments, chunks, codecs,
                               compression ratio, time span; --basic reads only

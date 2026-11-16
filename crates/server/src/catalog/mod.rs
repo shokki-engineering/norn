@@ -11,6 +11,7 @@ mod segments;
 pub(crate) mod select;
 mod signal;
 mod stream;
+mod stream_wire;
 mod upkeep;
 
 use std::collections::HashMap;

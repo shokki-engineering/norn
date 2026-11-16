@@ -506,8 +506,8 @@ package, all versioned in lockstep; it changes only with a new package
 version, which is the only place wire-incompatible changes may happen. `minor`
 counts compatible additions within a major: methods, fields, enum values,
 error reasons, capabilities. `buf breaking` enforces that a minor never breaks
-the wire or JSON form. The published v0.1.0 release speaks 1.6; 1.0.0-rc.1 speaks 1.7, and
-1.0.0-rc.2 and this tree 1.8 (`norn_protocol::PROTOCOL_VERSION`).
+the wire or JSON form. The published v0.1.0 release speaks 1.6; 1.0.0-rc.1 speaks 1.7,
+1.0.0-rc.2 speaks 1.8, and this tree 1.9 (`norn_protocol::PROTOCOL_VERSION`).
 The protocol crate is versioned `1.0.0-rc.2` with the rest of the workspace;
 this release identifier is separate from the integer major/minor wire version.
 1.1 added error reasons, `Server.recovery` and
@@ -547,6 +547,16 @@ operation (`CreateBackupRequest`, the response `Backup`, the metadata
 `CreateBackupMetadata`), which a 1.7 daemon answers `UNIMPLEMENTED`. It writes paths on
 the daemon's machine, for a client the socket already admits as the daemon's own user,
 and is not an MCP tool.
+
+1.9 adds `Stream.quota` (`StorageQuota.max_bytes`) and
+`BACKPRESSURE_REASON_QUOTA_EXCEEDED`. Set through `UpdateStream` with the mask path
+`quota`, or on `CreateStream`; an empty `quota` under that mask removes it. Once a
+stream's `stored_bytes` reach it, every batch for the stream is refused with that reason
+and `RESOURCE_EXHAUSTED`, and admitted again as soon as the quota is raised or data is
+removed; nothing is deleted. A quota at or below `retention.max_bytes` is
+`INVALID_ARGUMENT`, since retention could then never make room. A 1.8 daemon ignores
+the field, as protobuf does an unknown one, and a 1.8 client reads the new reason as an
+unknown refusal.
 
 A client calls `AdminService.NegotiateProtocol` once per connection, before
 anything else, with its version and the capabilities it cannot work without:

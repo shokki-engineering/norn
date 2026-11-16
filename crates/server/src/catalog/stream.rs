@@ -3,53 +3,27 @@
 
 //! `norn.stream.v1.StreamService`. Export answers `UNIMPLEMENTED`.
 
-use norn_metadata::{StreamPatch, StreamRecord, StreamSpec};
+use norn_metadata::{StreamPatch, StreamSpec};
 use norn_protocol::google::longrunning::Operation;
 use norn_protocol::stream::stream_service_server::{SERVICE_NAME, StreamService};
 use norn_protocol::stream::{
     ApplyStreamRetentionRequest, CompactStreamRequest, CreateStreamRequest, DeleteStreamRequest,
     ExportStreamRequest, GetSegmentRequest, GetStreamRequest, ListSegmentsRequest,
-    ListSegmentsResponse, ListStreamsRequest, ListStreamsResponse, Segment, Stream, StreamStats,
+    ListSegmentsResponse, ListStreamsRequest, ListStreamsResponse, Segment, Stream,
     UpdateStreamRequest, VerifyStreamRequest,
 };
 use norn_runtime::maintenance::Request as Job;
 use tonic::{Request, Response, Status};
 
 use super::query::{Mask, after_token, matches, page_size, page_token, parse_filter};
-use super::upkeep::{bounds, retention_from_wire, retention_to_wire};
-use super::{
-    Catalog, annotation_map, annotations, etag, expected, metadata_status, names, write_mode,
-};
-use crate::convert::time_to_wire;
+use super::stream_wire::quota_from_wire;
+use super::upkeep::{bounds, retention_from_wire};
+use super::{Catalog, annotations, expected, metadata_status, names, write_mode};
 use crate::status::bad_field;
 use crate::unimplemented::not_implemented;
 
 const FILTERABLE: [&str; 1] = ["display_name"];
-const MUTABLE: [&str; 3] = ["display_name", "retention", "annotations"];
-
-impl Catalog {
-    fn stream_to_wire(&self, r: &StreamRecord) -> Stream {
-        let stats = self.ingest.stats(r.descriptor.id);
-        let wide = |n: u64| i64::try_from(n).unwrap_or(i64::MAX);
-        Stream {
-            name: format!("streams/{}", r.descriptor.name),
-            display_name: r.display_name.clone(),
-            retention: retention_to_wire(r.retention),
-            annotations: annotation_map(&r.descriptor.metadata),
-            stats: Some(StreamStats {
-                sample_count: wide(stats.samples),
-                buffered_sample_count: wide(stats.buffered),
-                corrupt_sample_count: wide(stats.corrupt_samples),
-                stored_bytes: wide(stats.stored_bytes),
-                oldest_sample_time: stats.time_range.map(|(a, _)| time_to_wire(a)),
-                newest_sample_time: stats.time_range.map(|(_, b)| time_to_wire(b)),
-            }),
-            create_time: Some(time_to_wire(r.create_time)),
-            update_time: Some(time_to_wire(r.update_time)),
-            etag: etag(r.revision),
-        }
-    }
-}
+const MUTABLE: [&str; 4] = ["display_name", "retention", "annotations", "quota"];
 
 #[tonic::async_trait]
 impl StreamService for Catalog {
@@ -61,7 +35,8 @@ impl StreamService for Catalog {
         let stream = r.stream.ok_or_else(|| bad_field("stream", "is required"))?;
         let map = annotations(&self.registry, stream.annotations)?;
         let retention = retention_from_wire(stream.retention)?;
-        let spec = StreamSpec::new(stream.display_name, retention, map);
+        let quota = quota_from_wire(stream.quota)?;
+        let spec = StreamSpec::new(stream.display_name, retention, map).quota(quota);
         let (id, mode, now) = (r.stream_id, write_mode(r.validate_only), self.clock.now());
         let made = self.mutate(move |g| g.create_stream(&id, spec, now, mode));
         Ok(Response::new(self.stream_to_wire(&made.await?)))
@@ -139,14 +114,24 @@ impl StreamService for Catalog {
         let notes = notes
             .then(|| annotations(&self.registry, stream.annotations))
             .transpose()?;
-        let patch = StreamPatch::new(name.then_some(stream.display_name), retention, notes);
+        let quota = mask.wants("quota", stream.quota.is_some());
+        let quota = quota.then(|| quota_from_wire(stream.quota)).transpose()?;
+        let mut patch = StreamPatch::new(name.then_some(stream.display_name), retention, notes);
+        if let Some(quota) = quota {
+            patch = patch.quota(quota);
+        }
         let (want, mode, now) = (
             expected(&stream.etag),
             write_mode(r.validate_only),
             self.clock.now(),
         );
         let done = self.mutate(move |g| g.update_stream(&id, patch, want, now, mode));
-        Ok(Response::new(self.stream_to_wire(&done.await?)))
+        let record = done.await?;
+        if !r.validate_only {
+            // From the stream's next batch; a stream not running reads it at start.
+            self.ingest.set_quota(record.descriptor.id, record.quota);
+        }
+        Ok(Response::new(self.stream_to_wire(&record)))
     }
 
     async fn delete_stream(

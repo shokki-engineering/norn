@@ -94,15 +94,16 @@ fn a_version_1_log_opens_is_upgraded_and_then_refused_by_a_version_1_reader() {
     let upgraded = std::fs::read(&log).unwrap();
     assert_eq!(&upgraded[8..12], &2u32.to_le_bytes());
     assert_eq!(&upgraded[16..], &bytes[16..], "only the header changed");
+    // 3 holds quotas now; 4 is the first version this build does not know.
     let mut newer = upgraded;
-    newer[8..12].copy_from_slice(&3u32.to_le_bytes());
+    newer[8..12].copy_from_slice(&4u32.to_le_bytes());
     let crc = crc32c(&newer[..12]);
     newer[12..16].copy_from_slice(&crc.to_le_bytes());
     std::fs::write(&log, &newer).unwrap();
     let e = reopen(&dir);
     assert!(matches!(
         e,
-        Err(MetadataError::UnsupportedVersion { found: 3 })
+        Err(MetadataError::UnsupportedVersion { found: 4 })
     ));
 }
 
