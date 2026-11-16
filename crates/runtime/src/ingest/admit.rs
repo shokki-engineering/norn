@@ -53,6 +53,9 @@ impl Ingest {
             let decision = Decision::reject(Reason::AckLevelUnavailable, None, message);
             return Admission::rejected(decision);
         }
+        if let Some(refused) = self.disk_refusal() {
+            return refused;
+        }
         match self.handle(batch.stream) {
             Some(handle) => self.admit_to(&handle, batch),
             None => stored_unavailable(),

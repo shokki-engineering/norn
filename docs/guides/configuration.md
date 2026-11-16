@@ -138,7 +138,8 @@ off; the daemon refuses either rather than mixing them. Rotation is
 [maintenance]
 background = true                      # false: only what a client asks for
 compaction_interval_ms = 300000        # how often compaction looks for work
-retention_interval_ms = 3600000        # how often recorded policies are applied
+retention_interval_ms = 3600000        # how often recorded policies are applied; a size
+                                       # limit is also applied as each segment seals
 max_runs_per_pass = 8                  # the most merges per stream, per pass
 compaction_window = "22:00-06:00"      # UTC; unset means any hour
 ```

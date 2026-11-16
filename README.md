@@ -236,7 +236,9 @@ What is built, measured and planned, stage by stage, is in the
 - **Crash tests cover process death** (`kill -9`), not power loss. Every performance
   figure is from macOS; Linux and Windows are tested in CI, not measured.
 - **No disk budget.** A client can write until the disk is full unless a retention
-  policy is set ([review](docs/security/review-2026-11.md), L1).
+  policy is set ([review](docs/security/review-2026-11.md), L1). A full disk loses
+  nothing acknowledged, but the stream refuses batches until the daemon restarts
+  ([troubleshooting](docs/guides/troubleshooting.md#no-space-left-on-device-then-this-streams-storage-failed)).
 
 ## Security
 

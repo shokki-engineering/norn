@@ -5,6 +5,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Changelog
 
+## Unreleased
+
+### Disk use
+
+- A stream's size limit (`RetentionPolicy.max_bytes`) is applied each time the stream
+  seals a segment, not only on the `retention_interval_ms` schedule, an hour by
+  default. A busy stream now exceeds its limit by about one segment, not by an hour of
+  data. Age and month limits still run on the schedule. Nothing runs on a seal with
+  `[maintenance] background = false`
+  ([storage](../reference/storage.md#retention)).
+- The maintenance worker measures elapsed time on its clock after every wake-up. Before,
+  a client job ended its wait without counting the time towards the schedule, so a
+  steady stream of jobs could postpone sealing by age, compaction and retention.
+- A full disk is tested on a real 32 MiB filesystem, a disk image on macOS and a tmpfs
+  on Linux (`just disk-full`, and a CI job on both). Every sample acknowledged `DURABLE`
+  survives, none is stored twice, and ingest resumes after space is freed and the
+  daemon restarted. Until a restart the stream refuses every batch
+  ([troubleshooting](../guides/troubleshooting.md)).
+
 ## 1.0.0-rc.2
 
 Release title: `norn v1.0.0-rc.2`. All workspace crates, including `norn-protocol`,

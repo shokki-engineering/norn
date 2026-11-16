@@ -29,6 +29,12 @@ crash:
     cargo test --locked -p norn-metadata --test batch_recovery
     cargo test --locked -p norn-server --test crash --test compaction_kill --test shared_memory_crash --test query_damage
 
+# A full disk: nothing acknowledged is lost, and ingest resumes once space returns.
+# Mounts a small filesystem (sudo on Linux), so CI runs it as its own job.
+[unix]
+disk-full:
+    tools/disk-full.sh
+
 # Benchmark smoke runs include real daemons over Unix sockets.
 [unix]
 bench-smoke:

@@ -117,7 +117,7 @@ pub(crate) fn run(
         Ok(w) => w,
         Err(e) => return fail(&e),
     };
-    let mut publisher = Publisher::new(ctx.index.get().map(Arc::as_ref), shared);
+    let mut publisher = Publisher::new(ctx.index.get().map(Arc::as_ref), shared, Some(&ctx.sealed));
     let mut open = OpenSegment::default();
     // The newest generation stored and not yet known to be in the index.
     let mut unretired = None;

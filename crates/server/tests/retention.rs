@@ -16,16 +16,14 @@ mod upkeep_common;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use common::{Running, append, batch, double, seed, start, temp};
+use common::{append, batch, double, seed, start, temp};
 use norn_core::{Config, MaintenanceConfig};
 use norn_protocol::common::ValueType;
 use norn_protocol::stream::retention_policy::Limit;
-use norn_protocol::stream::stream_service_client::StreamServiceClient;
-use norn_protocol::stream::{RetentionPolicy, Stream, UpdateStreamRequest};
 use norn_protocol::telemetry::AcknowledgementLevel::Durable;
 use norn_server::DaemonConfig;
 use query_common::{all, samples};
-use upkeep_common::{PLANT, retention, segments, server, stats, stream};
+use upkeep_common::{PLANT, retention, segments, server, set_policy, stats, stream};
 
 /// Three sealed segments: sequences 0..10, 1000..1010 and 2000..2010, each second.
 async fn three_segments(tag: &str) -> PathBuf {
@@ -39,22 +37,6 @@ async fn three_segments(tag: &str) -> PathBuf {
         data = d.stop_keeping().await;
     }
     data
-}
-
-async fn set_policy(d: &Running, limit: Limit) {
-    let request = UpdateStreamRequest {
-        stream: Some(Stream {
-            name: PLANT.into(),
-            retention: Some(RetentionPolicy { limit: Some(limit) }),
-            ..Stream::default()
-        }),
-        update_mask: Some(prost_types::FieldMask {
-            paths: vec!["retention".into()],
-        }),
-        validate_only: false,
-    };
-    let mut client = StreamServiceClient::new(d.channel.clone());
-    client.update_stream(request).await.unwrap();
 }
 
 fn seconds(seconds: i64) -> prost_types::Duration {
@@ -74,7 +56,7 @@ async fn a_stream_with_no_policy_keeps_everything() {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_dry_run_says_what_would_go_and_removes_nothing_and_applying_removes_exactly_that() {
     let d = start(DaemonConfig::default(), three_segments("ret-age").await).await;
-    set_policy(&d, Limit::MaxAge(seconds(500))).await;
+    set_policy(&d.channel, Limit::MaxAge(seconds(500))).await;
     assert!(stream(&d.channel).await.retention.is_some());
     let before = stats(&d.channel).await;
 
@@ -120,7 +102,7 @@ async fn a_dry_run_says_what_would_go_and_removes_nothing_and_applying_removes_e
 #[tokio::test(flavor = "multi_thread")]
 async fn a_size_limit_removes_the_oldest_whole_segments_and_never_the_newest() {
     let d = start(DaemonConfig::default(), three_segments("ret-size").await).await;
-    set_policy(&d, Limit::MaxBytes(1)).await;
+    set_policy(&d.channel, Limit::MaxBytes(1)).await;
     let done = retention(&d.channel, false).await;
     assert_eq!(done.removed_segment_count, 2);
     assert_eq!(segments(&d.data).len(), 1);
@@ -132,7 +114,7 @@ async fn a_size_limit_removes_the_oldest_whole_segments_and_never_the_newest() {
 async fn a_recorded_policy_runs_by_itself_on_the_schedule() {
     let data = three_segments("ret-sched").await;
     let d = start(DaemonConfig::default(), data).await;
-    set_policy(&d, Limit::MaxAge(seconds(500))).await;
+    set_policy(&d.channel, Limit::MaxAge(seconds(500))).await;
     let data = d.stop_keeping().await;
     let mut schedule = MaintenanceConfig::default();
     schedule.retention_interval = Duration::from_millis(20);
@@ -152,7 +134,7 @@ async fn a_recorded_policy_runs_by_itself_on_the_schedule() {
 #[tokio::test(flavor = "multi_thread")]
 async fn a_policy_of_months_is_recorded_and_outlives_a_restart() {
     let d = start(DaemonConfig::default(), three_segments("ret-months").await).await;
-    set_policy(&d, Limit::MaxMonths(6)).await;
+    set_policy(&d.channel, Limit::MaxMonths(6)).await;
     let data = d.stop_keeping().await;
     let d = start(DaemonConfig::default(), data).await;
     let policy = stream(&d.channel).await.retention.unwrap();

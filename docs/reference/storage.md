@@ -597,6 +597,17 @@ A pass logs at `WARN` first, deletes oldest first (a crash leaves an unfinished 
 never a hole), calls `refresh(stream)`, adjusts the stream's totals, and counts the
 removal for `GetServer`. A dry run stops before the log line and changes nothing.
 
+**When a policy runs.** Every policy runs on the `retention_interval_ms` schedule, an
+hour by default. A `MaxBytes` policy also runs each time its stream seals a segment,
+since only size grows with every seal: the store thread marks the stream in a set
+bounded by the number of streams, without waiting on anything, and wakes the worker,
+which applies the limits of every marked stream in one job. A busy stream therefore
+exceeds its limit by about one segment, not by an hour of data. With
+`[maintenance] background = false` a seal applies nothing and the schedule does not
+run either; only a client's `ApplyStreamRetention` does. The worker measures the time
+on its clock after every wake-up, so frequent seals or jobs never hold back sealing by
+age, compaction or the retention schedule.
+
 ## Clean shutdown
 
 Reading every chunk at every start costs time proportional to all stored data. A

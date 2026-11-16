@@ -54,6 +54,8 @@ pub(super) struct Storage {
     group_commit_interval_ms: Option<u64>,
     max_chunk_age_ms: Option<u64>,
     durable_acks: Option<bool>,
+    max_disk_bytes: Option<u64>,
+    min_free_bytes: Option<u64>,
     encryption: Option<String>,
     key_file: Option<String>,
     key_env: Option<String>,
@@ -168,6 +170,8 @@ pub(super) fn engine(
     set(&mut storage.group_commit_interval, interval);
     set(&mut storage.max_chunk_age, ms(s.max_chunk_age_ms));
     set(&mut storage.durable_acks, s.durable_acks);
+    set(&mut storage.max_disk_bytes, s.max_disk_bytes);
+    set(&mut storage.min_free_bytes, s.min_free_bytes);
     Config::builder()
         .memory(memory)
         .storage(storage)

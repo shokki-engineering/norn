@@ -4,10 +4,14 @@
 //! The worker's loop: client jobs in order, and passes on the schedule.
 
 use std::sync::{Arc, PoisonError};
+use std::time::Duration;
 
+use norn_core::Timestamp;
+use norn_metadata::Retention;
 use tokio_util::sync::CancellationToken;
 
 use super::Maintenance;
+use super::disk::DISK_CHECK;
 use super::months;
 use super::ops::{Failure, Operation, Outcome, Request};
 
@@ -31,43 +35,58 @@ impl Maintenance {
         // reaches a sealed segment at all.
         let sealing = self.ingest.seal_check_interval();
         let (mut compact_in, mut retain_in, mut seal_in) = (compaction, retention, sealing);
+        let mut disk_in = Duration::ZERO;
+        let mut last = self.clock.now();
         loop {
+            // The disk budget is measured whether or not background passes run.
+            if disk_in.is_zero() {
+                disk_in = DISK_CHECK;
+                self.run_disk_check().await;
+            }
             let upkeep = if c.background {
                 compact_in.min(retain_in)
             } else {
                 sealing
             };
-            let wait = upkeep.min(seal_in);
+            let wait = upkeep.min(seal_in).min(disk_in);
             tokio::select! {
                 () = token.cancelled() => break,
                 op = rx.recv() => match op {
                     Some(op) => self.run_job(op, &token).await,
                     None => break,
                 },
-                () = self.clock.sleep(wait) => {
-                    seal_in = seal_in.saturating_sub(wait);
-                    if seal_in.is_zero() {
-                        seal_in = sealing;
-                        let asked = self.ingest.seal_aged(self.clock.now());
-                        if asked > 0 {
-                            tracing::debug!(streams = asked, "sealing segments by age");
-                        }
-                    }
-                    if c.background {
-                        compact_in = compact_in.saturating_sub(wait);
-                        retain_in = retain_in.saturating_sub(wait);
-                        let (compact, retain) = (compact_in.is_zero(), retain_in.is_zero());
-                        if compact {
-                            compact_in = compaction;
-                        }
-                        if retain {
-                            retain_in = retention;
-                        }
-                        if compact || retain {
-                            self.run_pass(compact, retain, &token).await;
-                        }
-                    }
+                () = self.ingest.sealed_wake(), if c.background => {
+                    self.run_size_limits(&token).await;
                 },
+                () = self.clock.sleep_until(after(last, wait)) => {}
+            }
+            // Measured, not assumed: a job or a seal ends the wait early, and the
+            // schedule must still advance, or frequent seals would starve it.
+            let now = self.clock.now();
+            let waited = since(last, now);
+            last = now;
+            seal_in = seal_in.saturating_sub(waited);
+            disk_in = disk_in.saturating_sub(waited);
+            if seal_in.is_zero() {
+                seal_in = sealing;
+                let asked = self.ingest.seal_aged(now);
+                if asked > 0 {
+                    tracing::debug!(streams = asked, "sealing segments by age");
+                }
+            }
+            if c.background {
+                compact_in = compact_in.saturating_sub(waited);
+                retain_in = retain_in.saturating_sub(waited);
+                let (compact, retain) = (compact_in.is_zero(), retain_in.is_zero());
+                if compact {
+                    compact_in = compaction;
+                }
+                if retain {
+                    retain_in = retention;
+                }
+                if compact || retain {
+                    self.run_pass(compact, retain, &token).await;
+                }
             }
         }
         rx.close();
@@ -112,6 +131,26 @@ impl Maintenance {
         }
     }
 
+    /// Applies the size limit of each stream that sealed since the last look.
+    /// Other limits wait for the schedule: only size grows with every seal.
+    async fn run_size_limits(self: &Arc<Self>, token: &CancellationToken) {
+        let worker = Arc::clone(self);
+        let cancel = token.clone();
+        let done = tokio::task::spawn_blocking(move || {
+            for id in worker.ingest.take_sealed() {
+                if cancel.is_cancelled() {
+                    return;
+                }
+                if matches!(worker.policy(id), Some(Retention::MaxBytes(_))) {
+                    let _ = worker.apply_retention(id, false);
+                }
+            }
+        });
+        if done.await.is_err() {
+            tracing::error!("a size-limit pass panicked");
+        }
+    }
+
     async fn run_pass(self: &Arc<Self>, compact: bool, retain: bool, token: &CancellationToken) {
         let worker = Arc::clone(self);
         let cancel = token.clone();
@@ -138,4 +177,16 @@ impl Maintenance {
             }
         }
     }
+}
+
+/// `wait` after `from`, or the furthest instant the clock can name.
+fn after(from: Timestamp, wait: Duration) -> Timestamp {
+    let nanos = i64::try_from(wait.as_nanos()).unwrap_or(i64::MAX);
+    Timestamp::from_nanos(from.as_nanos().saturating_add(nanos))
+}
+
+/// Time from `from` to `to`; zero if the clock went back.
+fn since(from: Timestamp, to: Timestamp) -> Duration {
+    let nanos = to.as_nanos().saturating_sub(from.as_nanos());
+    Duration::from_nanos(u64::try_from(nanos).unwrap_or(0))
 }
