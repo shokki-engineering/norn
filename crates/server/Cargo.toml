@@ -66,11 +66,11 @@ fuzzing = []
 # runtime-rs's `tls`, which brings rustls with ring (C and assembly), excused
 # beneath this crate only (xtask/src/runtime_rs.rs). Off in a plain build, so
 # that stays pure Rust; release builds turn it on (justfile, `release-build`).
-remote = ["tpp_grpc/tls"]
+# `tonic/tls-ring` is already on through `tls`; named so the remote tests' TLS
+# client compiles only with this feature, never in a plain or cross build.
+remote = ["tpp_grpc/tls", "tonic/tls-ring"]
 
 [dev-dependencies]
-# The remote tests' client: tonic over TLS, trusting the test certificate.
-tonic = { workspace = true, features = ["tls-ring"] }
 # Tests read back what the daemon stored; a client never does this.
 norn-storage = { path = "../storage" }
 norn-core = { path = "../core" }
