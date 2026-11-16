@@ -61,10 +61,11 @@ pub(super) async fn call(
     let path = PathAndQuery::try_from(format!("/{service}/{name}"))
         .map_err(|e| Status::internal(e.to_string()))?;
     let mut client = tonic::client::Grpc::new(loopback);
+    // The loopback cannot fail to be ready: its error type has no values.
     client
         .ready()
         .await
-        .map_err(|e| Status::unavailable(e.to_string()))?;
+        .map_err(|never| -> Status { match never {} })?;
     let reply = client.unary(Request::new(body), path, Raw).await?;
     decode(descriptor.output(), reply.into_inner())
 }

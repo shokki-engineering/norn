@@ -19,7 +19,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
   rustls with `ring`, C and assembly, linked into `norn` only; the engine stays pure Rust.
   `xtask deps` now examines the graph with the release features on
   ([architecture](../reference/architecture.md#no-c)).
-- `nornctl` does not connect remotely yet.
+- `nornctl --remote HOST:PORT --token-file PATH [--ca-file PATH]` reaches a `[remote]`
+  listener over TLS; every command works there. Behind `norn-cli`'s `remote` feature,
+  on in release builds ([nornctl](../reference/cli.md#connecting)).
+- `norn_ipc::Conn`: a channel with the credentials each call presents. `AppendCall::open`
+  and the adapters' `export` and `import` take `impl Into<Conn>`, so a `Channel` still
+  works and a remote client passes its token.
+- A daemon built without the `remote` feature refuses a `[remote]` set in code
+  (`DaemonError::RemoteUnsupported`), as it already refused one in a file.
+
+### Fixes
+
+- `rmcp` at least 3.9: before 3.9 its HTTP clients read a response body with no
+  bound (RUSTSEC-2026-0462). Norn uses those clients only in tests.
+- Two clippy warnings that failed `just lint` under `-D warnings`.
 
 ### Disk use
 

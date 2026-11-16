@@ -19,6 +19,11 @@
 //!   excused is reaching ring *only* through those shared crates or the runtime,
 //!   and only while the runtime is in the graph; a crate naming ring itself, or
 //!   reaching it any other way, still fails.
+//! - **ring for remote gRPC (2026-11-16).** The owner turned that excuse into use:
+//!   `norn-server`'s `remote` feature enables `tls` for the `[remote]` listener,
+//!   and `norn-cli`'s enables tonic's rustls client for `nornctl --remote`, which
+//!   reaches ring through [`SHARED`] alone. Release builds turn both on, and the
+//!   deps gate examines that graph (`deps::RELEASE_FEATURES`).
 //! - **OpenTelemetry.** `tpp-grpc` records transport spans and metrics through
 //!   `opentelemetry`'s global providers. Norn never names an OpenTelemetry type.
 //!   Accepted beneath `norn-server` (the `norn` binary) only.

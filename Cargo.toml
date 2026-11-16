@@ -135,8 +135,9 @@ crc32fast = "1"
 
 # --- MCP inside the daemon (norn-server); docs/reference/mcp.md.
 # The Model Context Protocol, the SDK protoc-gen-mcp's Rust output and
-# tpp-agents are written against. No default features: none brings TLS.
-rmcp = { version = "3.8", default-features = false }
+# tpp-agents are written against. No default features: none brings TLS. At least
+# 3.9: before it, its HTTP clients read a response with no bound (RUSTSEC-2026-0462).
+rmcp = { version = "3.9", default-features = false }
 
 # --- The daemon's servers (norn-server); docs/reference/architecture.md, "runtime-rs".
 # runtime-rs's HybridServer: gRPC on a local socket or named pipe (never a TCP

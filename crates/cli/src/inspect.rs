@@ -6,12 +6,12 @@
 
 use std::io::Write;
 
+use norn_ipc::Conn;
 use norn_protocol::stream::stream_service_client::StreamServiceClient;
 use norn_protocol::stream::{
     ChunkColumn, GetSegmentRequest, GetStreamRequest, ListSegmentsRequest, Segment, SegmentView,
 };
 use prost_types::Timestamp;
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::resources::{call, usage};
@@ -76,7 +76,7 @@ fn print(out: &mut impl Write, s: &Segment, full: bool) -> std::io::Result<()> {
 /// names, for the codecs and the ratio, unless `--basic` asks only for what the
 /// index holds.
 pub(crate) async fn inspect(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {
@@ -104,7 +104,7 @@ pub(crate) async fn inspect(
 }
 
 async fn whole(
-    client: &mut StreamServiceClient<Channel>,
+    client: &mut StreamServiceClient<Conn>,
     parent: &str,
     view: i32,
     full: bool,

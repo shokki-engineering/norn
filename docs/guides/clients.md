@@ -72,8 +72,18 @@ $ grpcurl -cacert ca.pem -H "authorization: Bearer $(cat token)" \
     -d '{"name": "server"}' norn.example.net:7443 norn.admin.v1.AdminService/GetServer
 ```
 
-A call without the token, or with a wrong one, fails with `UNAUTHENTICATED`. `nornctl`
-does not connect remotely yet: it reaches the local endpoint only.
+A call without the token, or with a wrong one, fails with `UNAUTHENTICATED`.
+`nornctl` connects the same way, and every command works over it:
+
+```console
+$ nornctl --remote norn.example.net:7443 --token-file ~/.config/norn/token status
+```
+
+Add `--ca-file ca.pem` when the certificate is from a private CA
+([nornctl](../reference/cli.md#connecting)). A Rust client can do what `nornctl` does:
+`norn_ipc::Conn::new(channel, Credentials::bearer(token))` over a tonic TLS channel
+sends the token on every call, and every generated client, `AppendCall` and the
+adapters' `export` and `import` take a `Conn`.
 
 ## nornctl
 

@@ -5,13 +5,13 @@
 
 use std::time::Duration;
 
+use norn_ipc::Conn;
 use norn_ipc::{AppendCall, AppendOptions, AppendReplies, AppendSender};
 use norn_protocol::common::Sample;
 use norn_protocol::telemetry::{
     AcknowledgementLevel, AppendSamplesRequest, AppendSamplesResponse, BackpressureOutcome,
 };
 use tokio::time::{Instant, sleep_until};
-use tonic::transport::Channel;
 
 use super::refused::refused;
 use crate::AdapterError;
@@ -37,7 +37,7 @@ pub(crate) struct Appender {
 
 impl Appender {
     pub(crate) async fn open(
-        channel: Channel,
+        channel: Conn,
         level: AcknowledgementLevel,
         max_retries: u32,
         plane: &AppendOptions,

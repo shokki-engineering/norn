@@ -8,7 +8,9 @@
 
 use std::process::ExitCode;
 
-use norn_cli::{Command, USAGE, connect, offline, parse, resources, status, version};
+use norn_cli::{
+    Command, USAGE, connect, connect_remote, offline, parse, resources, status, version,
+};
 
 fn main() -> ExitCode {
     let args = match parse(std::env::args_os().skip(1)) {
@@ -46,7 +48,10 @@ fn main() -> ExitCode {
         }
     };
     let result = runtime.block_on(async {
-        let channel = connect(&args.endpoint, args.timeout).await?;
+        let channel = match &args.remote {
+            Some(remote) => connect_remote(remote, args.timeout).await?,
+            None => connect(&args.endpoint, args.timeout).await?,
+        };
         let mut out = std::io::stdout().lock();
         match &args.command {
             Command::Version => version(channel, &mut out).await,

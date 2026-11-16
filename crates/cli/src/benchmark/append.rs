@@ -14,10 +14,10 @@ use std::io::Write;
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
+use norn_ipc::Conn;
 use norn_ipc::{AppendCall, AppendOptions};
 use norn_protocol::admin::Limits;
 use norn_protocol::telemetry::{AppendSamplesRequest, BackpressureOutcome};
-use tonic::transport::Channel;
 
 use super::batch::{now_nanos, sample};
 use super::plan::Plan;
@@ -68,7 +68,7 @@ fn lock(pending: &Pending) -> std::sync::MutexGuard<'_, HashMap<i64, (Instant, u
 
 /// Sends batches for `plan.duration`, then waits for every acknowledgement.
 pub(super) async fn append(
-    channel: &Channel,
+    channel: &Conn,
     plan: &Plan,
     limits: &Limits,
     batch: usize,

@@ -124,8 +124,8 @@ any domain.
 - **A pure-Rust engine.** Storage, codecs, index, query, state, replay and the write
   path reach no C, and a plain build of `norn` and `nornctl` needs no C toolchain
   (`xtask deps` enforces both). The one exception is remote gRPC: its TLS is rustls
-  with `ring`, which has C and assembly, linked into the daemon only, in release
-  builds and in builds with the `remote` feature
+  with `ring`, which has C and assembly, linked into `norn` and `nornctl` only, in
+  release builds and in builds with their `remote` features
   ([architecture](docs/reference/architecture.md#no-c)). `unsafe` is denied
   workspace-wide, with one exception: the owner-only security descriptor for Windows
   named pipes.

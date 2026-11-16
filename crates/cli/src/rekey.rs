@@ -19,7 +19,6 @@ fn daemon() -> PathBuf {
 }
 
 /// Runs `norn rekey words…` to its end, and exits as it does.
-#[must_use]
 pub fn rekey(words: &[String]) -> ExitCode {
     let path = daemon();
     match Command::new(&path).arg("rekey").args(words).status() {

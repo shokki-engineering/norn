@@ -5,12 +5,12 @@
 
 use std::sync::Arc;
 
+use norn_ipc::Conn;
 use norn_ipc::{AppendOptions, Attach};
 use norn_protocol::admin::Capability;
 use norn_protocol::common::Sample;
 use norn_protocol::telemetry::AcknowledgementLevel;
 use prost::Message;
-use tonic::transport::Channel;
 
 use crate::wire::appender::Appender;
 use crate::wire::negotiate;
@@ -152,10 +152,11 @@ fn by_stream(
 /// is, after everything before that row is stored. Repeating after a fix adds
 /// only what is missing.
 pub async fn import<S: SampleSource + ?Sized>(
-    channel: Channel,
+    channel: impl Into<Conn>,
     source: &mut S,
     options: &ImportOptions,
 ) -> Result<ImportReport, AdapterError> {
+    let channel = channel.into();
     let limits = negotiate(channel.clone(), &[Capability::AppendSamples]).await?;
     let published = usize::try_from(limits.max_batch_samples)
         .unwrap_or(usize::MAX)

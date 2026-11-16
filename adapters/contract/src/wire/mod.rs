@@ -9,15 +9,15 @@ pub(crate) mod present;
 mod refused;
 pub(crate) mod registry;
 
+use norn_ipc::Conn;
 use norn_protocol::admin::admin_service_client::AdminServiceClient;
 use norn_protocol::admin::{Capability, Limits, NegotiateProtocolRequest, ProtocolVersion};
-use tonic::transport::Channel;
 
 use crate::AdapterError;
 
 /// Negotiates the protocol, requiring `needed`, and returns the published limits.
 pub(crate) async fn negotiate(
-    channel: Channel,
+    channel: Conn,
     needed: &[Capability],
 ) -> Result<Limits, AdapterError> {
     const METHOD: &str = "AdminService.NegotiateProtocol";

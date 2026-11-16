@@ -3,10 +3,10 @@
 
 //! Learning, over the control plane, whether and how shared memory is offered.
 
+use crate::Conn;
 use norn_protocol::admin::admin_service_client::AdminServiceClient;
 use norn_protocol::admin::{Capability, NegotiateProtocolRequest, SharedMemoryPlane};
 use norn_protocol::{PROTOCOL_VERSION, ProtocolVersion, SHARED_MEMORY_MINOR};
-use tonic::transport::Channel;
 
 /// What this client calls itself in `NegotiateProtocol`, for the daemon's log.
 const USER_AGENT: &str = concat!("norn-ipc/", env!("CARGO_PKG_VERSION"));
@@ -14,7 +14,7 @@ const USER_AGENT: &str = concat!("norn-ipc/", env!("CARGO_PKG_VERSION"));
 /// The daemon's shared-memory plane, or `None` to stay on gRPC: negotiation
 /// failed (the append call that follows reports anything real), the agreed
 /// version predates 1.7, or the daemon does not offer the capability.
-pub(super) async fn shared_memory(channel: Channel) -> Option<SharedMemoryPlane> {
+pub(super) async fn shared_memory(channel: Conn) -> Option<SharedMemoryPlane> {
     let request = NegotiateProtocolRequest {
         name: "server".to_owned(),
         client_version: Some(PROTOCOL_VERSION.into()),

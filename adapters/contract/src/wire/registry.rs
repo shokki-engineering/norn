@@ -5,6 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use norn_ipc::Conn;
 use norn_protocol::common::ValueType;
 use norn_protocol::entity::entity_service_client::EntityServiceClient;
 use norn_protocol::entity::{CreateEntityRequest, Entity};
@@ -13,7 +14,6 @@ use norn_protocol::signal::{CreateSignalRequest, GetSignalRequest, Signal};
 use norn_protocol::stream::stream_service_client::StreamServiceClient;
 use norn_protocol::stream::{CreateStreamRequest, Stream};
 use tonic::Code;
-use tonic::transport::Channel;
 
 use crate::{AdapterError, Catalog, entity_resource};
 
@@ -21,7 +21,7 @@ use crate::{AdapterError, Catalog, entity_resource};
 /// line per signal, entity and stream; never overwrites an existing resource's
 /// metadata, because the target's may be newer than the file's.
 pub(crate) struct Registry {
-    channel: Channel,
+    channel: Conn,
     streams: HashSet<String>,
     entities: HashSet<String>,
     signals: HashMap<String, String>,
@@ -29,7 +29,7 @@ pub(crate) struct Registry {
 }
 
 impl Registry {
-    pub(crate) fn new(channel: Channel) -> Self {
+    pub(crate) fn new(channel: Conn) -> Self {
         Self {
             channel,
             streams: HashSet::new(),
@@ -138,7 +138,7 @@ impl Registry {
 
     async fn check_existing(
         &self,
-        client: &mut SignalServiceClient<Channel>,
+        client: &mut SignalServiceClient<Conn>,
         signal: &Signal,
     ) -> Result<(), AdapterError> {
         let name = signal.name.clone();

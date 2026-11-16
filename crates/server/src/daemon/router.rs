@@ -173,14 +173,18 @@ fn remote_server<H: tonic_health::pb::health_server::Health>(
     Ok(Some(server))
 }
 
-/// Without the `remote` feature, configuration refuses `[remote]`.
+/// Without the `remote` feature there is no TLS to serve it with: a file's
+/// `[remote]` is refused when parsed, and one set in code is refused here.
 #[cfg(not(feature = "remote"))]
 fn remote_server<H: tonic_health::pb::health_server::Health>(
-    _: &DaemonConfig,
+    config: &DaemonConfig,
     _: &super::serve::Wiring,
     _: &super::serve::Registered<H>,
     _: &MeterLayer,
     _: u32,
 ) -> Result<Option<HybridServer>, DaemonError> {
-    Ok(None)
+    match config.remote_settings() {
+        Some(_) => Err(DaemonError::RemoteUnsupported),
+        None => Ok(None),
+    }
 }

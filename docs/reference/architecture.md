@@ -289,6 +289,12 @@ runtime already serves TLS with it. `xtask deps` examines the graph with
 checked, and a test fails if that list and the release recipe differ. A plain
 `cargo build -p norn-server` still needs no C compiler.
 
+`nornctl --remote` is the client side: `norn-cli`'s `remote` feature turns on tonic's
+rustls client with ring, and the system's trust store (`rustls-native-certs`). It
+reaches ring only through the shared crates, which the rule above excuses for any
+member but an engine crate; the owner accepted that for `nornctl` on 2026-11-16, and
+release builds turn it on too.
+
 A second exception arrives with shared memory in 1.0.0-rc.1, `xtask/src/iceoryx2.rs`: two of
 iceoryx2's platform crates name `cc` and `bindgen` as build-dependencies that run only
 on a QNX build host. Exactly those helpers, of exactly those crates, are excused beneath

@@ -5,10 +5,10 @@
 
 use std::io::Write;
 
+use norn_ipc::Conn;
 use norn_protocol::admin::admin_service_client::AdminServiceClient;
 use norn_protocol::admin::{Capability, GetServerRequest, Limits, NegotiateProtocolRequest};
 use norn_protocol::{PROTOCOL_VERSION, ProtocolVersion};
-use tonic::transport::Channel;
 use tonic_health::pb::HealthCheckRequest;
 use tonic_health::pb::health_check_response::ServingStatus;
 use tonic_health::pb::health_client::HealthClient;
@@ -24,7 +24,7 @@ pub const USER_AGENT: &str = concat!("nornctl/", env!("CARGO_PKG_VERSION"));
 /// # Errors
 ///
 /// [`CliError::Call`] if either call fails; [`CliError::Output`].
-pub async fn status(channel: Channel, out: &mut impl Write) -> Result<(), CliError> {
+pub async fn status(channel: Conn, out: &mut impl Write) -> Result<(), CliError> {
     let health = HealthClient::new(channel.clone())
         .check(HealthCheckRequest {
             service: String::new(),
@@ -105,7 +105,7 @@ pub async fn status(channel: Channel, out: &mut impl Write) -> Result<(), CliErr
 ///
 /// [`CliError::Call`] with the daemon's reason, such as
 /// `ERROR_REASON_PROTOCOL_VERSION_UNSUPPORTED`; [`CliError::Output`].
-pub async fn version(channel: Channel, out: &mut impl Write) -> Result<(), CliError> {
+pub async fn version(channel: Conn, out: &mut impl Write) -> Result<(), CliError> {
     writeln!(out, "client: {USER_AGENT}")?;
     writeln!(
         out,

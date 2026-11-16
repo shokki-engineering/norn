@@ -6,6 +6,7 @@
 use std::io::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use norn_ipc::Conn;
 use norn_protocol::common::value::Kind;
 use norn_protocol::common::{Quality, QualitySeverity, QualitySubstatus, Sample, Value};
 use norn_protocol::google::r#type::Interval;
@@ -14,7 +15,6 @@ use norn_protocol::query::{
     Aggregate, AggregateFunction, Aggregation, QuerySamplesRequest, SampleOrder,
 };
 use prost_types::Timestamp;
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::resources::{call, usage};
@@ -172,7 +172,7 @@ fn print_aggregate(out: &mut impl Write, a: Aggregate) -> std::io::Result<()> {
 /// first response that reaches it and prints `resume_token:`, which `--resume`
 /// takes. Results therefore can run a page past the limit, never short of it.
 pub(crate) async fn query(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {

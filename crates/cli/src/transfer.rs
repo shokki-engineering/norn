@@ -14,9 +14,9 @@ use norn_adapter::{
 use norn_adapter_csv::{CsvSink, CsvSource};
 use norn_adapter_mcap::{McapSink, McapSource};
 use norn_adapter_parquet::{ArrowSink, ArrowSource, ParquetSink, ParquetSource};
+use norn_ipc::Conn;
 use norn_protocol::google::r#type::Interval;
 use norn_protocol::telemetry::AcknowledgementLevel;
-use tonic::transport::Channel;
 
 use crate::CliError;
 use crate::query::{selection, timestamp};
@@ -67,7 +67,7 @@ fn source(format: Format, file: File) -> Box<dyn SampleSource> {
 /// `export TARGET --format F --output PATH [--from T] [--to T] [--select F]`. The
 /// file must not exist; on failure the partial file is removed.
 pub(crate) async fn export(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {
@@ -124,7 +124,7 @@ fn guess(path: &str) -> Result<Format, CliError> {
 
 /// `import PATH [--format F] [--ack LEVEL] [--batch N]`.
 pub(crate) async fn import(
-    channel: Channel,
+    channel: Conn,
     words: &[&str],
     out: &mut impl Write,
 ) -> Result<(), CliError> {
