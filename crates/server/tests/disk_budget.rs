@@ -28,7 +28,7 @@ use norn_protocol::telemetry::telemetry_service_client::TelemetryServiceClient;
 use norn_server::DaemonConfig;
 use query_common::{all, samples};
 use tokio::sync::mpsc;
-use upkeep_common::{retention, set_policy};
+use upkeep_common::{retention, set_policy, stats};
 
 /// Room for many sealed segments, so that retention has some to remove: each
 /// batch spans more than `max_segment_age`, so each fills a segment of its own.
@@ -86,10 +86,21 @@ async fn send(d: &Running, id: i64) -> Result<(), (i32, String)> {
 }
 
 /// Sends batches from `from` until one is refused, giving its id and refusal.
+/// Each admitted batch is stored before the next is sent, so each is a chunk, and
+/// a segment, of its own: retention then has sealed segments to remove, however
+/// a platform's timers would otherwise group batches into chunks.
 async fn until_refused(d: &Running, from: i64) -> (i64, (i32, String)) {
     for id in from..from + 2_000 {
         if let Err(refusal) = send(d, id).await {
             return (id, refusal);
+        }
+        let started = Instant::now();
+        while stats(&d.channel).await.buffered_sample_count > 0 {
+            assert!(
+                started.elapsed() < Duration::from_secs(10),
+                "batch {id} never stored"
+            );
+            tokio::time::sleep(Duration::from_millis(5)).await;
         }
     }
     panic!("never refused");
