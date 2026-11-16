@@ -5,17 +5,19 @@
 
 use std::path::Path;
 
-use super::{HEADER_LEN, MAGIC, MAX_RECORD_BYTES, RECORD_HEADER_LEN, VERSION, VERSION_1};
+use super::{
+    HEADER_LEN, MAGIC, MAX_RECORD_BYTES, RECORD_HEADER_LEN, VERSION, VERSION_1, VERSION_3,
+};
 use crate::crc::crc32c;
 use crate::error::MetadataError;
 use crate::op::Op;
 
-/// The log's fixed header bytes, for the current version.
+/// The log's fixed header bytes, for the version a new log is written at.
 pub(crate) fn header() -> Vec<u8> {
     header_of(VERSION)
 }
 
-fn header_of(version: u32) -> Vec<u8> {
+pub(crate) fn header_of(version: u32) -> Vec<u8> {
     let mut h = Vec::with_capacity(HEADER_LEN);
     h.extend_from_slice(MAGIC);
     h.extend_from_slice(&version.to_le_bytes());
@@ -52,6 +54,8 @@ pub(crate) fn scan(
         .ok_or_else(|| corrupt(0, "header"))?;
     let version = if head == header() {
         VERSION
+    } else if head == header_of(VERSION_3) {
+        VERSION_3
     } else if head == header_of(VERSION_1) {
         VERSION_1
     } else {

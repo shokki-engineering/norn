@@ -99,7 +99,7 @@ pub fn parse<I: IntoIterator<Item = OsString>>(args: I) -> Result<Args, String> 
             "status" if command.is_none() => command = Some(Command::Status),
             "version" if command.is_none() => command = Some(Command::Version),
             "streams" | "entities" | "signals" | "append" | "query" | "state" | "replay"
-            | "subscribe" | "export" | "import" | "compact" | "verify" | "retention"
+            | "subscribe" | "export" | "import" | "compact" | "verify" | "retention" | "quota"
             | "inspect" | "stats" | "benchmark" | "backup"
                 if command.is_none() =>
             {

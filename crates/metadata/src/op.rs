@@ -28,6 +28,15 @@ pub(crate) enum Op {
 }
 
 impl Op {
+    /// The oldest log version that can hold this record: 3 for a stream with a
+    /// quota, 2 for everything else.
+    pub(crate) fn min_version(&self) -> u32 {
+        match self {
+            Self::PutStream(r) if r.quota.is_some() => 3,
+            _ => 2,
+        }
+    }
+
     pub(crate) fn encode(&self) -> Vec<u8> {
         let mut o = Out::default();
         match self {
@@ -64,7 +73,8 @@ impl Op {
                 o.u64(id.get());
             }
             Self::PutStream(r) => {
-                o.u8(5);
+                // A stream with a quota is a version 3 record; without, unchanged.
+                o.u8(if r.quota.is_some() { 9 } else { 5 });
                 o.u64(r.descriptor.id.get());
                 o.str(r.descriptor.name.as_str());
                 o.map(&r.descriptor.metadata);
@@ -73,6 +83,9 @@ impl Op {
                 o.time(r.create_time);
                 o.time(r.update_time);
                 o.u64(r.revision);
+                if let Some(quota) = r.quota {
+                    o.u64(quota);
+                }
             }
             Self::DeleteStream(id) => {
                 o.u8(6);
@@ -125,18 +138,23 @@ impl Op {
                 })
             }
             4 => Self::DeleteSignal(SignalId::new(i.u64()?)),
-            5 => {
+            tag @ (5 | 9) => {
                 let (id, name) = (StreamId::new(i.u64()?), i.name()?);
                 let mut descriptor = StreamDescriptor::new(id, name);
                 descriptor.metadata = i.map()?;
-                Self::PutStream(StreamRecord {
+                let mut record = StreamRecord {
                     descriptor,
                     display_name: i.str()?,
                     retention: decode_retention(&mut i)?,
+                    quota: None,
                     create_time: i.time()?,
                     update_time: i.time()?,
                     revision: i.u64()?,
-                })
+                };
+                if tag == 9 {
+                    record.quota = Some(i.u64()?);
+                }
+                Self::PutStream(record)
             }
             6 => Self::DeleteStream(StreamId::new(i.u64()?)),
             7 => Self::NextIds([i.u64()?, i.u64()?, i.u64()?]),

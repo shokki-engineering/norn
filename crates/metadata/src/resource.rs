@@ -4,6 +4,7 @@
 //! Client-chosen resource IDs, the last segment of a resource name.
 
 use crate::error::MetadataError;
+use crate::record::Retention;
 
 /// The longest resource ID, per the schema.
 const MAX_ID_BYTES: usize = 63;
@@ -51,4 +52,21 @@ pub fn check_display_name(name: &str) -> Result<(), MetadataError> {
         });
     }
     Ok(())
+}
+
+/// A quota must be positive, and above a size retention, which it would
+/// otherwise always refuse batches before; together they would never let
+/// retention make room.
+pub(crate) fn check_quota(retention: Retention, quota: Option<u64>) -> Result<(), MetadataError> {
+    let invalid = |reason: String| MetadataError::Invalid {
+        field: "quota.max_bytes",
+        reason,
+    };
+    match (retention, quota) {
+        (_, Some(0)) => Err(invalid("must be positive".into())),
+        (Retention::MaxBytes(size), Some(q)) if q <= size => Err(invalid(format!(
+            "{q} is not above retention.max_bytes {size}, so retention could never make room"
+        ))),
+        _ => Ok(()),
+    }
 }

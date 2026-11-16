@@ -73,6 +73,8 @@ pub struct StreamRecord {
     pub display_name: String,
     /// The retention policy.
     pub retention: Retention,
+    /// A hard limit on stored bytes, enforced at admission; `None` for none.
+    pub quota: Option<u64>,
     /// When it was created.
     pub create_time: Timestamp,
     /// When its settings last changed.

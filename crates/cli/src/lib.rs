@@ -37,6 +37,7 @@ mod inspect;
 pub mod offline;
 mod plane;
 mod query;
+mod quota;
 mod rekey;
 mod remote;
 mod replay;

@@ -30,11 +30,32 @@ pub struct Stream {
     /// Changes whenever the stream's settings do (AIP-154).
     #[prost(string, tag="8")]
     pub etag: ::prost::alloc::string::String,
+    /// A hard limit on what the stream holds, enforced as batches arrive. Unset
+    /// means none. Since protocol 1.9.
+    #[prost(message, optional, tag="9")]
+    pub quota: ::core::option::Option<StorageQuota>,
 }
 impl ::prost::Name for Stream {
 const NAME: &'static str = "Stream";
 const PACKAGE: &'static str = "norn.stream.v1";
 fn full_name() -> ::prost::alloc::string::String { "norn.stream.v1.Stream".into() }fn type_url() -> ::prost::alloc::string::String { "/norn.stream.v1.Stream".into() }}
+/// A hard limit on a stream's stored bytes. Once they reach it, every batch for
+/// the stream is refused with BACKPRESSURE_REASON_QUOTA_EXCEEDED, and nothing is
+/// deleted: removing data is a retention policy's work or an operator's. To bound
+/// a stream by removing its oldest data instead, use `RetentionPolicy.max_bytes`;
+/// with both, the quota must be above that size, or retention could never act.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StorageQuota {
+    /// Stored bytes, as `StreamStats.stored_bytes` counts them. Samples admitted
+    /// and not yet stored are not counted, so the stream can pass this by what its
+    /// write buffers hold when it is reached. Must be positive.
+    #[prost(int64, tag="1")]
+    pub max_bytes: i64,
+}
+impl ::prost::Name for StorageQuota {
+const NAME: &'static str = "StorageQuota";
+const PACKAGE: &'static str = "norn.stream.v1";
+fn full_name() -> ::prost::alloc::string::String { "norn.stream.v1.StorageQuota".into() }fn type_url() -> ::prost::alloc::string::String { "/norn.stream.v1.StorageQuota".into() }}
 /// When history becomes eligible for removal (SPEC section 43). Retention is
 /// always explicit: a stream without a policy keeps everything, and removal
 /// happens only at whole-segment granularity once every sample in the segment

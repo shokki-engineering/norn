@@ -14,11 +14,19 @@
 //! in place, so a daemon too old for batches refuses the log as
 //! `UnsupportedVersion` rather than misreading a marker.
 //!
+//! Version 3 adds one more, a stream with a quota (`Op::min_version`). A log is
+//! raised to 3 only when the first such record is written, its header made
+//! durable before the record, so a database that never sets a quota stays at 2
+//! and an older Norn still opens it; once raised, an older Norn refuses it as
+//! `UnsupportedVersion` rather than drop a quota silently. A rewrite writes the
+//! lowest version its records need.
+//!
 //! Chosen over rewriting a snapshot per change because a deployment creates 16,000
 //! signals at once: a rewrite per create would be quadratic in bytes and fsyncs.
 
 pub(crate) mod replay;
 mod snapshot;
+mod upgrade;
 
 pub(crate) use snapshot::write_log;
 pub use snapshot::{LogInspection, inspect_log};
@@ -32,9 +40,12 @@ use crate::error::MetadataError;
 use crate::op::Op;
 
 const MAGIC: &[u8; 8] = b"NORNMETA";
+/// The version a log is written at unless a record needs more.
 const VERSION: u32 = 2;
 /// The version before batches; read, and upgraded on open.
 const VERSION_1: u32 = 1;
+/// The version holding quotas; the newest this build reads.
+const VERSION_3: u32 = 3;
 const HEADER_LEN: usize = 16;
 const RECORD_HEADER_LEN: usize = 8;
 
@@ -62,6 +73,8 @@ pub(crate) struct Log {
     pub(crate) path: PathBuf,
     file: File,
     pub(crate) records: u64,
+    /// The header's version now.
+    version: u32,
 }
 
 fn io(op: &'static str, path: &Path) -> impl FnOnce(std::io::Error) -> MetadataError {
@@ -119,17 +132,23 @@ impl Log {
             .open(path)
             .map_err(io("open", path))?;
         file.set_len(end as u64).map_err(io("truncate", path))?;
-        if version != VERSION {
+        // Only a version 1 log is upgraded on open: a version 3 one keeps its
+        // header, which its records need.
+        let version = if version == VERSION_1 {
             // 16 bytes in the first sector: written whole or not at all.
             file.write_all(&replay::header())
                 .map_err(io("write", path))?;
-        }
+            VERSION
+        } else {
+            version
+        };
         file.seek(SeekFrom::End(0)).map_err(io("seek", path))?;
         file.sync_all().map_err(io("fsync", path))?;
         let log = Self {
             path: path.to_path_buf(),
             file,
             records,
+            version,
         };
         Ok((log, report))
     }
@@ -137,6 +156,7 @@ impl Log {
     /// Writes `ops` to the OS in one write; more than one gets a batch marker
     /// first. Not yet durable: the registry fsyncs.
     pub(crate) fn append_all(&mut self, ops: &[Op]) -> Result<(), MetadataError> {
+        self.raise_for(ops)?;
         let mut buf = Vec::new();
         if ops.len() > 1 {
             frame(&Op::Begin(ops.len() as u64), &mut buf);
@@ -151,24 +171,6 @@ impl Log {
     /// A second handle on the file, so an fsync never holds up appends.
     pub(crate) fn sync_handle(&self) -> Result<File, MetadataError> {
         self.file.try_clone().map_err(io("open", &self.path))
-    }
-
-    /// Replaces the log with `ops`: write beside it, fsync, rename, fsync the
-    /// directory. A crash leaves the old log or the new one, never a mix.
-    pub(crate) fn rewrite(&mut self, ops: &[Op]) -> Result<(), MetadataError> {
-        let tmp = self.path.with_extension("log.tmp");
-        drop(write_log(&tmp, ops)?);
-        fs::rename(&tmp, &self.path).map_err(io("rename", &self.path))?;
-        sync_parent(&self.path)?;
-        let mut file = OpenOptions::new()
-            .write(true)
-            .open(&self.path)
-            .map_err(io("open", &self.path))?;
-        file.seek(SeekFrom::End(0))
-            .map_err(io("seek", &self.path))?;
-        self.file = file;
-        self.records = ops.len() as u64;
-        Ok(())
     }
 }
 

@@ -50,6 +50,8 @@ pub(crate) struct Shared {
     pub(crate) opened_at: AtomicI64,
     /// Maintenance asks the store thread to seal the open segment.
     pub(crate) seal_requested: AtomicBool,
+    /// The stream's quota in stored bytes; zero for none. Read by admission.
+    pub(crate) quota: AtomicU64,
 }
 
 /// `opened_at` when no segment is open.
@@ -68,6 +70,7 @@ impl Shared {
             tail: Tail::new(buffers),
             opened_at: AtomicI64::new(NOT_OPEN),
             seal_requested: AtomicBool::new(false),
+            quota: AtomicU64::new(0),
         }
     }
 }

@@ -7,6 +7,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 ## Unreleased
 
+### Stream quotas (protocol 1.9)
+
+- `Stream.quota`: a hard limit on a stream's stored bytes. Once reached, its batches are
+  refused with `BACKPRESSURE_REASON_QUOTA_EXCEEDED` (`RESOURCE_EXHAUSTED`) and nothing is
+  deleted; raising the quota or removing data admits the next batch. Refused at or below
+  `retention.max_bytes`. One atomic load per batch without a quota, one comparison with
+  one ([operations](../guides/operations.md#quotas)).
+- `nornctl quota get|set STREAM Nb|none`.
+- The metadata log moves to version 3 when the first quota is written, and back to 2
+  when rewritten with none left; a 1.0.0-rc.2 build refuses a version 3 log
+  ([compatibility](../reference/compatibility.md)).
+
 ### Remote gRPC
 
 - `[remote]` serves the gRPC API to other machines: a second server beside the local

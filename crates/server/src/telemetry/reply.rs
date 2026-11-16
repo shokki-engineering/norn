@@ -48,6 +48,7 @@ fn reason_to_wire(reason: Reason) -> BackpressureReason {
         Reason::StorageUnavailable => BackpressureReason::StorageUnavailable,
         Reason::BatchTooLarge => BackpressureReason::BatchTooLarge,
         Reason::AckLevelUnavailable => BackpressureReason::AckLevelUnavailable,
+        Reason::QuotaExceeded => BackpressureReason::QuotaExceeded,
         _ => BackpressureReason::Unspecified,
     }
 }

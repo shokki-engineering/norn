@@ -23,6 +23,7 @@ mod journal;
 mod layout;
 mod layout_detail;
 mod lifecycle;
+mod quota;
 mod record;
 mod recover;
 mod recover_error;

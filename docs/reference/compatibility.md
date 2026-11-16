@@ -22,7 +22,7 @@ in it is believed. `<database>/FORMAT` carries the version of the store as a who
 | Chunk frame | frame header, byte 4 | 1 | as above |
 | Block codec | segment header, `codec_version` | see `norn_codec::CODEC_VERSION` | as above |
 | Journal | ordinary segments under `<stream>/journal/` | as a segment | as a segment |
-| Metadata log | `metadata.log` header (`NORNMETA`, u32) | 2 (reads 1, upgrades it in place on open) | refuses to start, changes nothing |
+| Metadata log | `metadata.log` header (`NORNMETA`, u32) | 2, or 3 once a stream has a quota (reads 1, upgrades it in place on open) | refuses to start, changes nothing |
 | Clean marker | `<stream>/CLEAN` | 1 | ignored: the stream's chunks are read and checked instead |
 | Index snapshot | `index/<stream>/summary.nidx`, `signals.nsig`, `*.ndet` | 1 each | discarded and rebuilt from the segments |
 | Backup | `MANIFEST`, first line | 1 | `restore` refuses, changes nothing |
@@ -42,6 +42,11 @@ only the current one. The exceptions are stated, not implied:
 - A **metadata log** of version 1 is upgraded where it lies, by rewriting its header on
   open. It is the one file a build rewrites without being asked; version 1 is a strict
   subset of version 2, so nothing else about it changes.
+- A metadata log goes to **version 3** only when the first stream quota is written, its
+  header made durable before that record. Version 2 is a strict subset of 3. A database
+  that never sets a quota stays at 2, so a 1.0.0-rc.2 build still opens it; once a quota
+  is set, that build refuses the log as a newer version rather than run without the
+  quota. A log rewritten with no quota left goes back to 2.
 - **A build never rewrites a segment** to a newer version just because it can read it.
   That is what `nornctl migrate` is for, and only when a new store version calls for it.
 
@@ -115,7 +120,7 @@ in place; where nothing automated does, it says so.
 | --- | --- | --- |
 | Protocol major 1 | Every `norn.*.v1` package. A 1.x release changes it only by additive minors: new methods, fields, enum values, reasons and capabilities. A 1.x daemon serves every 1.x client, at the lower of the two minors | `buf breaking` with `WIRE_JSON` rules (`buf.yaml`), run by the API workflow (`.github/workflows/api-lint.yml`) against each pull request's base and each push's previous commit |
 | Store version 1 | `<database>/FORMAT` version 1, and a store with no `FORMAT` (written by 1.0.0-rc.1 or earlier), read in place | `CURRENT_VERSION`, `OLDEST_READ` and `OLDEST_MIGRATED` in `norn-database`; `crates/database/tests/store_version.rs` |
-| Segment format 1.0 | Plain segments, the journal, chunk schema 1 and frame version 1, metadata log versions 1 and 2 (version 1 upgraded on open, as above), all read by every 1.x release | the golden stores under `crates/runtime/tests/golden/v1/` and `tests/golden_read.rs`, on every CI run ([below](#what-holds-this-in-place)) |
+| Segment format 1.0 | Plain segments, the journal, chunk schema 1 and frame version 1, metadata log versions 1, 2 and 3 (version 1 upgraded on open, as above), all read by every 1.x release | the golden stores under `crates/runtime/tests/golden/v1/` and `tests/golden_read.rs`, on every CI run ([below](#what-holds-this-in-place)) |
 | Configuration keys | Every key [configuration](../guides/configuration.md) documents keeps its meaning and is still accepted. New keys may be added, with defaults that keep today's behaviour | review only: no test compares one release's keys with another's. An unknown key is refused, so a removed key would fail loudly at start, never silently |
 | `nornctl` commands and flags | Every command and flag in [nornctl](cli.md), and its exit status: 0, 1 when a command failed, 2 for a command line it could not parse | review only, and the command-line tests in `crates/cli/tests/`, which exercise most commands against a real daemon |
 | `norn-sink` public API | The items `crates/sink/src/lib.rs` exports, used as [writing a device adapter](../guides/device-adapter.md) shows, and its `shared-memory` feature | review only: no semver check runs in CI. The crates are not on crates.io; depend on a release tag |
