@@ -105,15 +105,15 @@ agent is editing the files being moved. Norn only.
 | release | v0.1.0 first release: platform archives, checksums, complete Homebrew package and daemon service; PAT-backed tap updates authored by Walle. See [changelog](changelog.md) and [release setup](../guides/homebrew.md) |
 | 1.0.0-rc.1 | released 2026-11-03: stage 12, the shared-memory data plane (`norn-shared-memory` over iceoryx2, protocol 1.7, opt-in, Unix only, socket fallback); stability (verify reads the open segment, sealing by open time, shutdown drain of open append calls, macOS `F_FULLFSYNC` documented). See [changelog](changelog.md) |
 | 1.0.0-rc.2 | protocol 1.8: published limits, segment inspection, `nornctl inspect`/`stats`/`benchmark`, end-to-end and crash CI jobs, fuzzing, the benchmark matrix, `norn-sink`, compatibility policy, backup, restore and migrate, security review fixes, experimental encryption at rest, Windows fixes. See [changelog](changelog.md) |
+| 1.0.0-rc.3 | protocol 1.9: daemon-wide disk budget (closes security review L1), size retention applied as segments seal, a full-disk CI job, remote gRPC over TLS with a bearer token (`[remote]`, `nornctl --remote`), hard per-stream quotas, metadata log version 3. See [changelog](changelog.md) |
 | next | the open replay issue (a maximum-speed replay of a recent window may stop after `RUNNING`; under investigation), then GGML-accelerated pattern detection (opt-in), then the full benchmark matrix |
 
 ## Roadmap
 
-**v0.1.0 and 1.0.0-rc.1 are released.** **1.0.0-rc.2 (protocol 1.8)** is the second
-release candidate: published limits, `nornctl inspect`, `stats` and `benchmark`,
-fuzzing, the benchmark matrix, `norn-sink`, the compatibility policy with backup,
-restore and migrate, the security review's fixes and opt-in, experimental encryption
-at rest ([changelog](changelog.md)). What comes after, in order:
+**v0.1.0, 1.0.0-rc.1 and 1.0.0-rc.2 are released.** **1.0.0-rc.3 (protocol 1.9)** is
+the third release candidate: a daemon-wide disk budget, remote gRPC over TLS with a
+bearer token, and hard per-stream quotas ([changelog](changelog.md)). What comes after,
+in order:
 
 - **The open replay issue.** A maximum-speed replay of a recent window may stop after
   `RUNNING`; under investigation.
@@ -134,7 +134,7 @@ Tests that need Unix signals or Unix sockets run on Linux and macOS only;
 | Stage | Subject       | Scope                                                       | State       | Today                                                                                                                                                                      |
 | ----- | ------------- | ----------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | Foundation    | workspace, docs, core types, errors, config, gates          | done        |                                                                                                                                                                            |
-| 2 | Protocol | Protobuf, gRPC, buf, AIP lint, versioning | done | 1.6, with `BatchCreateEntities` and `BatchCreateSignals`; 1.7 in 1.0.0-rc.1 adds `SharedMemoryPlane`; 1.8 in 1.0.0-rc.2 adds the published message limits, `GetSegment`, `ListSegments` and `CreateBackup`; `ExportStream` unimplemented by decision: export is client-side |
+| 2 | Protocol | Protobuf, gRPC, buf, AIP lint, versioning | done | 1.6, with `BatchCreateEntities` and `BatchCreateSignals`; 1.7 in 1.0.0-rc.1 adds `SharedMemoryPlane`; 1.8 in 1.0.0-rc.2 adds the published message limits, `GetSegment`, `ListSegments` and `CreateBackup`; 1.9 in 1.0.0-rc.3 adds `Stream.quota`; `ExportStream` unimplemented by decision: export is client-side |
 | 3     | IPC           | Unix sockets, named pipes, transport, framing               | done        | named pipes run in CI on `windows-latest`: `nornctl` against a real daemon, and the owner-only DACL                                                                        |
 | 4     | Basic daemon  | lifecycle, config, health                                   | done        | Homebrew service; in 1.0.0-rc.1 an open append call or idle connection no longer delays shutdown                                                                                |
 | 5     | Storage       | format, chunks, segments, checksums, recovery               | done        | compaction, retention, `verify` and a clean-start marker run in the daemon; 1.0.0-rc.1 adds sealing by open time and verifying the open segment                                 |

@@ -19,7 +19,7 @@ version; this build speaks 1.8 (`norn_protocol::PROTOCOL_VERSION`).
 
 A Rust client needs `norn-ipc` to dial the local endpoint and `norn-protocol` for the
 generated stubs. The crates are not on crates.io; depend on the repository at a
-release tag, such as `v1.0.0-rc.2`.
+release tag, such as `v1.0.0-rc.3`.
 [`crates/cli/examples/plain_client.rs`](../../crates/cli/examples/plain_client.rs)
 is a complete client with nothing of the daemon in it: it creates a stream, an entity
 and a signal, and appends through a bounded channel. Captured from Norn 0.1.0:
