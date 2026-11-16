@@ -44,7 +44,7 @@ impl Level {
 pub(super) fn judge(used: u64, free: Option<u64>, max: u64, min: u64) -> Level {
     let mut level = Level::Room;
     if max > 0 {
-        let what = format!("segments take {used} bytes of max_disk_bytes = {max}");
+        let what = format!("stored samples take {used} bytes of max_disk_bytes = {max}");
         if used >= max {
             return Level::Spent(what);
         }
@@ -69,7 +69,10 @@ impl Maintenance {
     /// space is a system call that a slow volume can hold up.
     pub(super) async fn run_disk_check(self: &Arc<Self>) {
         let worker = Arc::clone(self);
-        if tokio::task::spawn_blocking(move || worker.check_disk()).await.is_err() {
+        if tokio::task::spawn_blocking(move || worker.check_disk())
+            .await
+            .is_err()
+        {
             tracing::error!("a disk budget check panicked");
         }
     }
@@ -134,6 +137,9 @@ mod tests {
     fn unknown_free_space_spends_nothing_and_the_worse_limit_wins() {
         assert_eq!(judge(0, None, 0, 1000), Level::Room);
         assert!(matches!(judge(900, Some(0), 1000, 1000), Level::Spent(_)));
-        assert!(matches!(judge(1000, Some(5000), 1000, 1000), Level::Spent(_)));
+        assert!(matches!(
+            judge(1000, Some(5000), 1000, 1000),
+            Level::Spent(_)
+        ));
     }
 }

@@ -46,8 +46,9 @@ pub struct StorageConfig {
     pub max_chunk_age: Duration,
     /// Whether the daemon offers `DURABLE`, that is, whether it fsyncs.
     pub durable_acks: bool,
-    /// The most bytes every stream's segments may take together; past it every
-    /// batch is refused, and nothing is deleted. Zero means no limit.
+    /// The most bytes every stream's stored samples may take together, encoded
+    /// and compressed; past it every batch is refused, and nothing is deleted.
+    /// Segment headers and directories are not counted. Zero means no limit.
     pub max_disk_bytes: u64,
     /// The free space the data directory's volume must keep, whoever uses the
     /// rest; at or below it every batch is refused. Zero means no floor.

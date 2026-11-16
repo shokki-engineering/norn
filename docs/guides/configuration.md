@@ -92,7 +92,8 @@ reach sealed segments, which compaction, retention and the clean-start marker wo
 Zero is refused. Maintenance checks every quarter of the value, kept between 10 ms and
 60 s, and does so even with `[maintenance] background = false`.
 
-**Disk budget.** `max_disk_bytes` bounds what every stream's segments take together,
+**Disk budget.** `max_disk_bytes` bounds every stream's stored samples together, as
+encoded and compressed (`stored_bytes`; segment headers and directories are not counted),
 and `min_free_bytes` the free space left on the data directory's volume, whoever uses
 the rest; zero turns either off. Maintenance measures both every second, with
 `[maintenance] background = false` too. Once either is reached, every batch is refused

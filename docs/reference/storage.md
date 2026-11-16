@@ -615,7 +615,7 @@ its disk. Two `[storage]` settings bound the whole daemon:
 
 | Setting | Measures | Default |
 | --- | --- | --- |
-| `max_disk_bytes` | every stream's `stored_bytes`, summed | 0, no limit |
+| `max_disk_bytes` | every stream's `stored_bytes`, summed: its chunks as encoded and compressed, without segment headers and directories | 0, no limit |
 | `min_free_bytes` | free space on the data directory's volume, from the OS | 256 MiB |
 
 The maintenance worker measures every second on the blocking pool, whether or not

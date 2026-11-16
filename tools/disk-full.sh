@@ -31,5 +31,6 @@ Linux)
 esac
 trap 'unmount || true; rm -rf "$WORK"' EXIT
 
+# One test at a time: each fills the whole filesystem.
 NORN_SMALL_FS="$MOUNT" cargo test --locked -p norn-server --test disk_full "$@" -- \
-    --ignored --nocapture
+    --ignored --nocapture --test-threads=1
