@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Changelog
 
-## 1.0.0-rc.3
+## 1.0.0-rc.3 — 2026-11-16
 
 Release title: `norn v1.0.0-rc.3`. All workspace crates, including `norn-protocol`,
 are versioned `1.0.0-rc.3`; wire negotiation is at protocol 1.9. Client and daemon agree
@@ -80,7 +80,7 @@ that never sets one stays readable by it.
   daemon restarted. Until a restart the stream refuses every batch
   ([troubleshooting](../guides/troubleshooting.md)).
 
-## 1.0.0-rc.2
+## 1.0.0-rc.2 — 2026-11-06
 
 Release title: `norn v1.0.0-rc.2`. All workspace crates, including `norn-protocol`,
 are versioned `1.0.0-rc.2`; wire negotiation is at protocol 1.8. Client and daemon agree
